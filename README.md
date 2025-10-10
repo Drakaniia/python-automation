@@ -6,7 +6,8 @@ A powerful, object-oriented Python automation toolkit for developers. Execute co
 
 - **GitHub Operations**: Push, pull, status, and log operations
 - **Git Repository Initialization**: Initialize and push new repos to GitHub with one command
-- **Project Structure Viewer**: Visualize your project hierarchy
+- **Project Structure Viewer**: Visualize current directory structure in AI-readable format
+- **Folder Navigator**: Interactive directory navigation with intuitive controls
 - **Extensible Architecture**: Easy to add new automation modules
 - **OOP Design**: Clean, maintainable code structure
 - **Global Access**: Run from anywhere with the `magic` command
@@ -24,7 +25,8 @@ python-automation/
     ├── menu.py                 # Menu system (base classes)
     ├── git_manager.py          # Git operations (push/pull/status/log)
     ├── git_initializer.py      # Git init & first push automation
-    └── structure_viewer.py     # Project structure viewer
+    ├── structure_viewer.py     # Project structure viewer (AI-readable)
+    └── folder_navigator.py     # Interactive folder navigation
 ```
 
 ## Installation 🔧
@@ -59,7 +61,7 @@ cd python-automation
 
 ```bash
 touch main.py setup.sh README.md
-touch automation/{__init__.py,magic.py,menu.py,git_manager.py,git_initializer.py,structure_viewer.py}
+touch automation/{__init__.py,magic.py,menu.py,git_manager.py,git_initializer.py,structure_viewer.py,folder_navigator.py}
 ```
 
 Copy the code from each artifact into its respective file.
@@ -114,12 +116,59 @@ magic
    → Automated: git init, add, commit, push!
    ```
 
-3. **Show Project Structure**
-   - Displays parent directory structure
-   - Shows current project files with sizes
-   - Highlights the current directory
+3. **Show Project Structure** 📊
+   - Displays current directory structure only
+   - AI-readable format (easy to copy/paste to AI assistants)
+   - Shows file sizes
+   - Clean tree visualization with proper indentation
+   - Example output:
+     ```
+     python-automation/
+     ├── main.py (1.2KB)
+     ├── setup.sh (3.4KB)
+     ├── README.md (8.5KB)
+     └── automation/
+         ├── __init__.py (0.1KB)
+         ├── magic.py (0.5KB)
+         ├── menu.py (2.3KB)
+         ├── git_manager.py (4.1KB)
+         ├── git_initializer.py (3.8KB)
+         ├── structure_viewer.py (2.9KB)
+         └── folder_navigator.py (4.2KB)
+     ```
 
-4. **Exit**
+4. **Navigate Folders** 🗂️ ✨NEW
+   - Interactive directory navigation
+   - View all subdirectories in current location
+   - Navigate by entering directory number
+   - Commands:
+     - **Number (1, 2, 3...)**: Enter that directory
+     - **`back` or `..`**: Go up one level
+     - **`home`**: Jump to home directory
+     - **`root`**: Return to project root
+     - **`exit` or `q`**: Return to main menu
+   
+   **Example session:**
+   ```
+   📍 Current Location: /c/projects
+   
+   📁 Available Directories:
+   1. python-automation/
+   2. web-projects/
+   3. data-science/
+   
+   Your choice: 1
+   ✅ Entered: python-automation/
+   
+   📁 Available Directories:
+   1. automation/
+   2. tests/
+   
+   Your choice: back
+   ✅ Moved up to: /c/projects
+   ```
+
+5. **Exit**
    - Close the automation system
 
 ## Git Initialization Example 📝
@@ -209,11 +258,12 @@ Menu (ABC)
 ├── MainMenu
 ├── GitMenu
 ├── GitInitMenu
-└── [Your Custom Menu]
+└── FolderNavigatorMenu
 
 GitOperations
 GitInitializer
 StructureViewer
+FolderNavigator
 MenuItem
 ```
 
@@ -250,6 +300,10 @@ MenuItem
 - Verify repository URL is correct
 - Ensure repository exists on GitHub
 
+**Folder navigator can't access directory**
+- Check directory permissions
+- Some system directories may be restricted
+
 ## Customization 🎨
 
 ### Change the Alias Name
@@ -259,12 +313,30 @@ Edit your `.bashrc`:
 alias mycmd="cd /c/projectfiles/python-automation && python -m automation.magic"
 ```
 
-### Exclude Additional Directories
+### Exclude Additional Directories in Structure Viewer
 
 Edit `EXCLUDE_DIRS` in `automation/structure_viewer.py`:
 ```python
-EXCLUDE_DIRS = {"__pycache__", ".git", "node_modules", "venv"}
+EXCLUDE_DIRS = {"__pycache__", ".git", "node_modules", "venv", "build", "dist"}
 ```
+
+## Tips & Tricks 💡
+
+### AI-Readable Structure Output
+
+The "Show Project Structure" feature outputs in a format optimized for AI assistants:
+- Clean tree structure with proper indentation
+- File sizes included
+- Easy to copy/paste into ChatGPT, Claude, or other AI tools
+- Helps AI understand your project layout quickly
+
+### Quick Navigation
+
+Use the Folder Navigator to:
+- Explore project directories without typing long paths
+- Quickly jump between project folders
+- Preview directory contents before entering
+- Navigate complex project structures intuitively
 
 ## Contributing 🤝
 
