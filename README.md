@@ -1,10 +1,11 @@
 # Python Automation System 🚀
 
-A powerful, object-oriented Python automation toolkit for developers. Execute common development tasks with a simple command: `magic`
+A powerful, object-oriented Python automation toolkit for developers. Execute common development tasks with a simple command: **`magic`**
 
 ## Features ✨
 
 - **GitHub Operations**: Push, pull, status, and log operations
+- **Git Repository Initialization**: Initialize and push new repos to GitHub with one command
 - **Project Structure Viewer**: Visualize your project hierarchy
 - **Extensible Architecture**: Easy to add new automation modules
 - **OOP Design**: Clean, maintainable code structure
@@ -14,36 +15,73 @@ A powerful, object-oriented Python automation toolkit for developers. Execute co
 
 ```
 python-automation/
-├── main.py                    # Entry point
-├── setup.sh                   # Installation script
-├── README.md                  # This file
-└── automation/                # Automation modules
-    ├── __init__.py           # Package initialization
-    ├── menu.py               # Menu system (base classes)
-    ├── git_manager.py        # Git operations
-    └── structure_viewer.py   # Project structure viewer
+├── main.py                      # Entry point
+├── setup.sh                     # Installation script
+├── README.md                    # This file
+└── automation/                  # Automation modules
+    ├── __init__.py             # Package initialization
+    ├── magic.py                # CLI entry point for `magic`
+    ├── menu.py                 # Menu system (base classes)
+    ├── git_manager.py          # Git operations (push/pull/status/log)
+    ├── git_initializer.py      # Git init & first push automation
+    └── structure_viewer.py     # Project structure viewer
 ```
 
 ## Installation 🔧
 
-1. **Clone or create the project structure:**
-   ```bash
-   mkdir -p python-automation/automation
-   cd python-automation
-   ```
+### 1. Prerequisites
 
-2. **Create all the necessary files** (main.py, setup.sh, and automation module files)
+Ensure Python 3.13+ is installed:
 
-3. **Run the setup script:**
-   ```bash
-   chmod +x setup.sh
-   ./setup.sh
-   ```
+```bash
+python --version
+```
 
-4. **Activate the alias:**
-   ```bash
-   source ~/.bashrc  # or ~/.zshrc for Zsh users
-   ```
+**Windows Users**: If you see a Microsoft Store message, disable the Windows App Execution Alias:
+- Settings → Apps → Advanced app settings → App execution aliases
+- Turn OFF the Python aliases
+
+Add Python to your `~/.bashrc`:
+
+```bash
+export PATH="/c/Users/<YourUser>/AppData/Local/Programs/Python/Python313:$PATH"
+alias python="py"
+```
+
+### 2. Create Project Structure
+
+```bash
+mkdir -p python-automation/automation
+cd python-automation
+```
+
+### 3. Create Required Files
+
+```bash
+touch main.py setup.sh README.md
+touch automation/{__init__.py,magic.py,menu.py,git_manager.py,git_initializer.py,structure_viewer.py}
+```
+
+Copy the code from each artifact into its respective file.
+
+### 4. Set Up the Global `magic` Alias
+
+Add this to your `~/.bashrc`:
+
+```bash
+echo 'alias magic="cd /c/projectfiles/python-automation && python -m automation.magic"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+**Replace** `/c/projectfiles/python-automation` with your actual project path.
+
+### 5. Verify Installation
+
+```bash
+magic
+```
+
+You should see the main menu! 🎉
 
 ## Usage 🎯
 
@@ -55,19 +93,71 @@ magic
 
 ### Main Menu Options
 
-1. **GitHub Operations**
-   - Status: View current git status
-   - Log: Show commit history
-   - Pull: Pull latest changes from remote
-   - Push: Add, commit, and push changes
+1. **GitHub Operations (Push/Pull/Status/Log)**
+   - **Status**: View current git status
+   - **Log**: Show commit history (last 10 commits)
+   - **Pull**: Pull latest changes from remote
+   - **Push**: Add, commit, and push changes
 
-2. **Show Project Structure**
+2. **Initialize Git & Push to GitHub** 🆕
+   - Creates README.md (if needed)
+   - Initializes git repository
+   - Creates first commit
+   - Sets branch to `main`
+   - Adds remote origin (you provide the URL)
+   - Pushes to GitHub
+   
+   **Example workflow:**
+   ```
+   Select option 2
+   → Enter: https://github.com/username/repo-name.git
+   → Automated: git init, add, commit, push!
+   ```
+
+3. **Show Project Structure**
    - Displays parent directory structure
    - Shows current project files with sizes
    - Highlights the current directory
 
-3. **Exit**
+4. **Exit**
    - Close the automation system
+
+## Git Initialization Example 📝
+
+When you select **"Initialize Git & Push to GitHub"**:
+
+```
+🚀 Git Repository Initialization & First Push
+
+📝 Enter your GitHub repository URL:
+Example: https://github.com/username/repo-name.git
+Repository URL: https://github.com/Drakaniia/python-automation.git
+
+🔧 Starting Git initialization...
+
+📄 Creating README.md...
+✅ README.md created
+
+📦 Initializing git repository...
+✅ Git repository initialized
+
+➕ Adding README.md to staging...
+✅ README.md added
+
+💾 Creating first commit...
+✅ First commit created
+
+🌿 Setting branch to 'main'...
+✅ Branch renamed to 'main'
+
+🔗 Adding remote origin: https://github.com/Drakaniia/python-automation.git
+✅ Remote origin added
+
+⬆️  Pushing to GitHub...
+
+✅ SUCCESS! Repository initialized and pushed to GitHub!
+🌐 Your repository: https://github.com/Drakaniia/python-automation
+```
 
 ## Adding New Automation Modules 🔌
 
@@ -118,56 +208,72 @@ To add a new automation module:
 Menu (ABC)
 ├── MainMenu
 ├── GitMenu
+├── GitInitMenu
 └── [Your Custom Menu]
 
 GitOperations
+GitInitializer
 StructureViewer
 MenuItem
 ```
 
 ## Requirements 📋
 
-- Python 3.6+
-- Git (for GitHub operations)
-- Bash or Zsh shell
+- Python 3.6+ (tested on 3.13.7)
+- Git (`git --version`)
+- Bash, Zsh, or Git Bash terminal
 
 ## Troubleshooting 🔍
 
-**"magic: command not found"**
-- Run `source ~/.bashrc` (or `~/.zshrc`)
-- Make sure setup.sh completed successfully
+**`magic: command not found`**
+- Run `source ~/.bashrc`
+- Verify alias: `type magic`
 
-**Git commands not working:**
-- Ensure Git is installed: `git --version`
-- Check if you're in a Git repository
+**`ModuleNotFoundError: No module named 'automation'`**
+- Ensure your alias uses:
+  ```bash
+  alias magic="cd /path/to/python-automation && python -m automation.magic"
+  ```
 
-**Permission denied:**
-- Make main.py executable: `chmod +x main.py`
+**Git commands not working**
+- Check Git installation: `git --version`
+- Ensure you're in a Git repository (for Push/Pull/Status/Log)
+
+**Permission denied**
+- Make scripts executable:
+  ```bash
+  chmod +x setup.sh main.py
+  ```
+
+**Push to GitHub fails**
+- Check GitHub authentication (SSH keys or Personal Access Token)
+- Verify repository URL is correct
+- Ensure repository exists on GitHub
 
 ## Customization 🎨
 
 ### Change the Alias Name
 
-Edit `setup.sh` and replace `magic` with your preferred command name:
+Edit your `.bashrc`:
 ```bash
-echo "alias mycommand='python3 $MAIN_PY'" >> "$SHELL_CONFIG"
+alias mycmd="cd /c/projectfiles/python-automation && python -m automation.magic"
 ```
 
 ### Exclude Additional Directories
 
 Edit `EXCLUDE_DIRS` in `automation/structure_viewer.py`:
 ```python
-EXCLUDE_DIRS = {"__pycache__", ".git", "your_folder"}
+EXCLUDE_DIRS = {"__pycache__", ".git", "node_modules", "venv"}
 ```
 
 ## Contributing 🤝
 
-Feel free to extend this automation system with your own modules!
+Pull requests and new automation modules are welcome! Follow the OOP structure and menu patterns for consistency.
 
 ## License 📄
 
-MIT License - feel free to use and modify as needed.
+MIT License — free to use, modify, and share.
 
 ---
 
-**Made with ❤️ for developers who love automation**
+**Made with ❤️ for developers who love automation and clean tooling**
