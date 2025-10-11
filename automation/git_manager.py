@@ -39,7 +39,6 @@ class GitOperations:
         print("⬆️  GIT PUSH")
         print("="*70 + "\n")
         
-        # Get commit message
         commit_msg = input("Enter commit message: ").strip()
         if not commit_msg:
             print("❌ Commit message cannot be empty")

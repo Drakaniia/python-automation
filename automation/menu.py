@@ -50,7 +50,7 @@ class Menu(ABC):
                 print("Please enter a valid number")
             except KeyboardInterrupt:
                 print("\n\nExiting...")
-                return len(self.items)  # Return last item (usually exit)
+                return len(self.items)
     
     def run(self):
         """Run the menu loop"""
