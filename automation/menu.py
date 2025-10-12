@@ -191,14 +191,15 @@ class MainMenu(Menu):
         """Setup main menu items"""
         from automation.git_operations import GitMenu
         from automation.structure_viewer import StructureViewer
-        from automation.folder_navigator import FolderNavigatorMenu
+        from automation.folder_navigator import FolderNavigator
         
         structure_viewer = StructureViewer()
+        folder_nav = FolderNavigator()
         
         self.items = [
             MenuItem("GitHub Operations", lambda: GitMenu().run()),
             MenuItem("Show Project Structure", lambda: structure_viewer.show_structure()),
-            MenuItem("Navigate Folders", lambda: FolderNavigatorMenu().run()),
+            MenuItem("Navigate Folders", lambda: folder_nav.navigate()),
             MenuItem("Exit", lambda: self.exit_program())
         ]
     
