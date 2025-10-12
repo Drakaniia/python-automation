@@ -1,6 +1,6 @@
 """
 Folder Navigator Module
-Interactive directory navigation system
+Interactive directory navigation system with persistent working directory
 """
 import os
 from pathlib import Path
@@ -11,6 +11,7 @@ class FolderNavigator:
     """Handles interactive folder navigation"""
     
     def __init__(self):
+        # Use the current working directory (don't reset it)
         self.current_path = Path.cwd()
     
     def navigate(self):
@@ -40,13 +41,16 @@ class FolderNavigator:
             print("  • Enter number to navigate into directory")
             print("  • Type 'back' or '..' to go up one level")
             print("  • Type 'home' to go to home directory")
-            print("  • Type 'root' to go to project root")
             print("  • Type 'exit' or 'q' to return to main menu\n")
             
             choice = input("Your choice: ").strip().lower()
             
-            # Handle exit
+            # Handle exit - DON'T change directory back, stay where we are
             if choice in ['exit', 'q']:
+                # Keep the current directory - this is the fix!
+                print(f"\n✅ Staying in: {self.current_path}")
+                print("⚠️  All operations will now work in this directory.\n")
+                input("Press Enter to return to main menu...")
                 break
             
             # Handle going back
@@ -58,15 +62,6 @@ class FolderNavigator:
                 self.current_path = Path.home()
                 os.chdir(self.current_path)
                 print(f"\n✅ Navigated to home directory: {self.current_path}")
-                input("\nPress Enter to continue...")
-            
-            # Handle project root
-            elif choice == 'root':
-                # Try to find project root (where .git exists or where we started)
-                original_cwd = Path.cwd()
-                self.current_path = original_cwd
-                os.chdir(self.current_path)
-                print(f"\n✅ Navigated to project root: {self.current_path}")
                 input("\nPress Enter to continue...")
             
             # Handle numeric input

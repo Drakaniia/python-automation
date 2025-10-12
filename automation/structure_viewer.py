@@ -17,6 +17,9 @@ class StructureViewer:
     
     def show_structure(self):
         """Display current directory structure in AI-readable format"""
+        # Update to current working directory
+        self.current_dir = Path.cwd()
+        
         print("\n" + "="*70)
         print("📁 PROJECT STRUCTURE (AI-Readable Format)")
         print("="*70)
