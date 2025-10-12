@@ -196,7 +196,7 @@ class MainMenu(Menu):
         structure_viewer = StructureViewer()
         
         self.items = [
-            MenuItem("GitHub Operations (All Git Features)", lambda: GitMenu().run()),
+            MenuItem("GitHub Operations", lambda: GitMenu().run()),
             MenuItem("Show Project Structure", lambda: structure_viewer.show_structure()),
             MenuItem("Navigate Folders", lambda: FolderNavigatorMenu().run()),
             MenuItem("Exit", lambda: self.exit_program())
