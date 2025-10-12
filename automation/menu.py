@@ -189,18 +189,14 @@ class MainMenu(Menu):
     
     def setup_items(self):
         """Setup main menu items"""
-        from automation.git_manager import GitMenu
-        from automation.git_initializer import GitInitMenu
-        from automation.git_recovery import GitRecoveryMenu
+        from automation.git_operations import GitMenu
         from automation.structure_viewer import StructureViewer
         from automation.folder_navigator import FolderNavigatorMenu
         
         structure_viewer = StructureViewer()
         
         self.items = [
-            MenuItem("GitHub Operations (Push/Pull/Status/Log)", lambda: GitMenu().run()),
-            MenuItem("Initialize Git & Push to GitHub", lambda: GitInitMenu().run()),
-            MenuItem("Git Recovery (Revert to Previous Commit)", lambda: GitRecoveryMenu().run()),
+            MenuItem("GitHub Operations (All Git Features)", lambda: GitMenu().run()),
             MenuItem("Show Project Structure", lambda: structure_viewer.show_structure()),
             MenuItem("Navigate Folders", lambda: FolderNavigatorMenu().run()),
             MenuItem("Exit", lambda: self.exit_program())
