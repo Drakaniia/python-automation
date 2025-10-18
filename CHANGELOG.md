@@ -1,6 +1,15 @@
 # Changelog
 
 
+### 2025-10-18 — 🔧 Bug Squashing Session
+
+**1 commits** across **2 files**. The codebase grew by 97 lines.
+
+#### 🐛 Bug Fixes
+- 🐛 Fix Docs: 2 files (`da94700`)
+
+
+
 ### 2025-10-18 — 🧹 Spring Cleaning
 
 **1 commits** across **12 files**. The codebase shrank by 176 lines.
