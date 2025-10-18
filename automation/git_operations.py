@@ -7,6 +7,7 @@ from automation.github.git_status import GitStatus
 from automation.github.git_log import GitLog
 from automation.github.git_pull import GitPull
 from automation.github.git_push import GitPush
+from automation.github.git_push_ai import GitPushAI
 from automation.github.git_initializer import GitInitializer
 from automation.github.git_recover import GitRecover
 from automation.menu import Menu, MenuItem
@@ -23,6 +24,7 @@ class GitOperations:
         self.log_handler = GitLog()
         self.pull_handler = GitPull()
         self.push_handler = GitPush()
+        self.push_ai_handler = GitPushAI()  # NEW: AI-powered push
         self.initializer = GitInitializer()
         self.recovery_handler = GitRecover()
     
@@ -41,8 +43,12 @@ class GitOperations:
         self.pull_handler.pull()
     
     def push(self):
-        """Add, commit, and push changes"""
+        """Add, commit, and push changes (LEGACY - without AI)"""
         self.push_handler.push()
+    
+    def push_ai(self):
+        """Add, commit with AI-generated message, and push changes"""
+        self.push_ai_handler.ai_commit_and_push()
     
     # ========== GIT INITIALIZATION ==========
     
@@ -54,7 +60,6 @@ class GitOperations:
     
     def show_recovery_menu(self):
         """Show the commit recovery interface"""
-        # Pass the required functions from log_handler to recovery_handler
         self.recovery_handler.show_recovery_menu(
             commit_history_func=self.log_handler.get_commit_history,
             commit_details_func=self.log_handler.get_commit_details,
@@ -75,7 +80,7 @@ class GitMenu(Menu):
             MenuItem("Status", lambda: self.git_ops.status()),
             MenuItem("Log (Last 10 commits)", lambda: self.git_ops.log()),
             MenuItem("Pull", lambda: self.git_ops.pull()),
-            MenuItem("Push (Add, Commit & Push)", lambda: self.git_ops.push()),
+            MenuItem("Push (Add, Commit & Push) 🤖 AI-Powered", lambda: self.git_ops.push_ai()),  # UPDATED
             MenuItem("Initialize Git & Push to GitHub", lambda: self.git_ops.initialize_and_push()),
             MenuItem("Git Recovery (Revert to Previous Commit)", lambda: self.git_ops.show_recovery_menu()),
             MenuItem("Back to Main Menu", lambda: "exit")
