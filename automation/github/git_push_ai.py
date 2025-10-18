@@ -2,7 +2,7 @@
 Git Push AI Module
 Handles AI-powered commit message generation using GPT4All (offline) and push operations
 Includes automatic changelog generation after successful push
-OPTIMIZED: Fast single-model loading with clean output
+ULTRA-OPTIMIZED: Fast inference with aggressive performance tuning
 """
 import subprocess
 from pathlib import Path
@@ -18,8 +18,14 @@ class GitPushAI:
     _model_instance = None
     _model_loaded = False
     
-    # Fixed model configuration
+    # Optimized model configuration
     MODEL_FILENAME = "mistral-7b-instruct-v0.1.Q4_0.gguf"
+    
+    # Performance tuning parameters
+    MAX_TOKENS = 32  # Reduced from 50 for faster generation
+    TEMPERATURE = 0.5  # Lower = more deterministic = faster
+    TOP_K = 20  # Reduced from 40 for speed
+    TOP_P = 0.85  # Slightly reduced
     
     def __init__(self):
         self.current_dir = Path.cwd()
@@ -38,6 +44,9 @@ class GitPushAI:
             # Suppress GPT4All's verbose logging
             os.environ['GPT4ALL_VERBOSE'] = '0'
             
+            # Enable performance optimizations
+            os.environ['OMP_NUM_THREADS'] = str(os.cpu_count())  # Use all CPU cores
+            
             # Suppress warnings about DLL loading
             warnings.filterwarnings('ignore', category=UserWarning)
             warnings.filterwarnings('ignore', category=RuntimeWarning)
@@ -49,37 +58,73 @@ class GitPushAI:
             models_dir.mkdir(exist_ok=True)
             model_path = models_dir / cls.MODEL_FILENAME
             
+            # CRITICAL: Redirect ALL stderr output (including C++ library errors)
+            # This suppresses DLL loading errors from the native library
+            import io
+            import contextlib
+            
             # Check if model exists
             if not model_path.exists():
                 print(f"📥 Downloading {cls.MODEL_FILENAME} (first time only)...")
                 print("   This may take a few minutes...")
                 
-                cls._model_instance = GPT4All(
-                    model_name=cls.MODEL_FILENAME,
-                    model_path=str(models_dir),
-                    allow_download=True,
-                    device='cpu',
-                    verbose=False
-                )
+                # Redirect stderr during download too
+                stderr_buffer = io.StringIO()
+                with contextlib.redirect_stderr(stderr_buffer):
+                    cls._model_instance = GPT4All(
+                        model_name=cls.MODEL_FILENAME,
+                        model_path=str(models_dir),
+                        allow_download=True,
+                        device='cpu',
+                        verbose=False,
+                        # Performance optimizations
+                        n_threads=os.cpu_count()  # Use all threads
+                    )
                 print("✅ Model downloaded and ready!")
             else:
                 # Load existing model with clean output
-                print(f"🔍 Loading AI model: {cls.MODEL_FILENAME}...")
+                print(f"🔍 Loading AI model: {cls.MODEL_FILENAME}...", end=' ', flush=True)
                 
-                # Redirect stderr temporarily to suppress DLL warnings
-                import io
-                import contextlib
+                # Open devnull for complete stderr suppression
+                import tempfile
                 
-                stderr_buffer = io.StringIO()
+                # Save original stderr
+                original_stderr = sys.stderr
                 
-                with contextlib.redirect_stderr(stderr_buffer):
+                try:
+                    # Redirect Python's stderr AND OS-level stderr (fd 2)
+                    sys.stderr = open(os.devnull, 'w')
+                    
+                    # Also suppress OS-level stderr on Windows
+                    if sys.platform == 'win32':
+                        import msvcrt
+                        old_stderr = os.dup(2)  # Duplicate stderr file descriptor
+                        devnull_fd = os.open(os.devnull, os.O_WRONLY)
+                        os.dup2(devnull_fd, 2)  # Redirect stderr to devnull
+                        os.close(devnull_fd)
+                    
+                    # Load model (DLL errors now suppressed) with performance settings
                     cls._model_instance = GPT4All(
                         model_name=cls.MODEL_FILENAME,
                         model_path=str(models_dir),
                         allow_download=False,
                         device='cpu',
-                        verbose=False
+                        verbose=False,
+                        # CRITICAL PERFORMANCE SETTINGS
+                        n_threads=os.cpu_count()  # Use all available CPU threads
                     )
+                    
+                finally:
+                    # Restore stderr
+                    if sys.platform == 'win32':
+                        try:
+                            os.dup2(old_stderr, 2)
+                            os.close(old_stderr)
+                        except:
+                            pass
+                    
+                    sys.stderr.close()
+                    sys.stderr = original_stderr
                 
                 print("✅ Model ready!")
             
@@ -106,7 +151,7 @@ class GitPushAI:
     def _generate_ai_commit_message_with_gpt4all(self, changed_files):
         """
         Generate commit message using GPT4All local model
-        Uses cached model instance for fast generation
+        OPTIMIZED: Ultra-fast generation with minimal prompt
         """
         model = self._init_ai_model()
         
@@ -114,66 +159,85 @@ class GitPushAI:
             return None
         
         try:
-            # Prepare file information
+            # Show generation progress
+            print("⚡ Generating message...", end=' ', flush=True)
+            
+            # Prepare ultra-concise file summary
             if not changed_files:
-                file_summary = "multiple files"
+                file_hint = "multiple files"
             elif len(changed_files) == 1:
-                file_summary = f"'{changed_files[0]}'"
-            elif len(changed_files) <= 3:
-                file_summary = ", ".join(f"'{f}'" for f in changed_files)
+                file_hint = Path(changed_files[0]).name
             else:
-                file_summary = f"{len(changed_files)} files"
+                file_hint = f"{len(changed_files)} files"
             
-            # Create concise prompt
-            prompt = f"""You are a Git commit message expert. Write a short, professional commit message (max 60 characters).
+            # ULTRA-MINIMAL PROMPT for speed
+            # Shorter prompt = faster generation
+            prompt = f"""Write a git commit message for: {file_hint}
 
-Changed files: {file_summary}
+Format: <emoji> <type>: <what changed>
+Emojis: 🚀=feature 🐛=fix 📚=docs ♻️=refactor
+Max 50 chars. No period.
 
-Rules:
-- Start with an emoji (🚀 feature, 🐛 fix, 📚 docs, ♻️ refactor, 🎨 style, ✅ test)
-- Use conventional commits format: <emoji> <type>: <description>
-- Be specific but concise
-- No periods at the end
-
-Commit message:"""
+Message:"""
             
-            # Generate with GPT4All (fast after first load)
+            # Generate with AGGRESSIVE performance settings
             response = model.generate(
                 prompt,
-                max_tokens=50,
-                temp=0.7,
-                top_p=0.9,
-                top_k=40
+                max_tokens=self.MAX_TOKENS,  # Reduced token count
+                temp=self.TEMPERATURE,       # Lower temperature = faster
+                top_p=self.TOP_P,
+                top_k=self.TOP_K,            # Reduced top_k
+                repeat_penalty=1.1,          # Slight penalty to avoid repetition
+                n_batch=8,                   # Batch size for processing
+                streaming=False              # Non-streaming for simpler code
             )
             
-            # Clean up the response
+            print("✅")  # Complete the progress line
+            
+            # Clean up the response aggressively
             message = response.strip()
             
-            # Remove common prefixes
-            for prefix in ["Commit message:", "Message:", "**", "```", '"', "'"]:
-                if message.startswith(prefix):
-                    message = message[len(prefix):].strip()
-                if message.endswith(prefix):
-                    message = message[:-len(prefix)].strip()
-            
-            # Take only first line
+            # Remove everything after first newline
             message = message.split('\n')[0].strip()
             
-            # Remove quotes if present
-            message = message.strip('"\'')
+            # Remove common prefixes/suffixes
+            prefixes = ["Message:", "Commit:", "Git:", "**", "```", '"', "'", ">", "-", "*"]
+            for prefix in prefixes:
+                if message.startswith(prefix):
+                    message = message[len(prefix):].strip()
             
-            # Ensure reasonable length
+            for suffix in ['"', "'", "**", "```", ".", "!"]:
+                if message.endswith(suffix):
+                    message = message[:-len(suffix)].strip()
+            
+            # Ensure it starts with an emoji
+            emojis = ['🚀', '🐛', '📚', '♻️', '🎨', '✅', '🔧', '✨', '🔥', '📝']
+            if not any(message.startswith(e) for e in emojis):
+                # Try to infer emoji from content
+                msg_lower = message.lower()
+                if any(word in msg_lower for word in ['fix', 'bug', 'error']):
+                    message = '🐛 ' + message
+                elif any(word in msg_lower for word in ['add', 'new', 'feature']):
+                    message = '🚀 ' + message
+                elif any(word in msg_lower for word in ['doc', 'readme', 'comment']):
+                    message = '📚 ' + message
+                elif any(word in msg_lower for word in ['refactor', 'clean', 'improve']):
+                    message = '♻️ ' + message
+                else:
+                    message = '🔧 ' + message
+            
+            # Enforce length limit
             if len(message) > 72:
                 message = message[:69] + "..."
             
-            # Validate message has content
-            if message and len(message) > 5:
+            # Validate message quality
+            if len(message) > 10 and len(message) < 80:
                 return message
             else:
                 return None
                 
         except Exception as e:
-            print(f"⚠️  AI generation error: {e}")
+            print(f"\n⚠️  Generation error: {e}")
             return None
     
     def ai_commit_and_push(self):
@@ -204,28 +268,29 @@ Commit message:"""
         changed_files = self._get_staged_files()
         
         # Generate AI commit message
-        print("🧠 Generating AI-powered commit message...\n")
+        print("🧠 AI-Powered Commit Message Generation")
+        print("─"*70)
         
-        # Try GPT4All first
+        # Try GPT4All first (now optimized for speed)
         ai_message = self._generate_ai_commit_message_with_gpt4all(changed_files)
         
         # Fallback to rule-based AI
         if not ai_message:
-            print("⚠️  Local AI unavailable. Using fallback analyzer...\n")
+            print("\n⚠️  Using fallback generator...")
             ai_message = self._generate_fallback_commit_message()
         
         if not ai_message:
-            print("❌ Failed to generate commit message. Falling back to manual input.")
-            commit_message = input("\nEnter commit message manually: ").strip()
+            print("❌ Failed to generate commit message. Manual input required.")
+            commit_message = input("\nEnter commit message: ").strip()
             if not commit_message:
                 print("❌ Commit message cannot be empty")
                 input("\nPress Enter to continue...")
                 return
         else:
             # Display AI-generated message
-            print("="*70)
+            print("\n" + "="*70)
             print(f"📝 Suggested Commit Message:")
-            print(f'"{ai_message}"')
+            print(f'   "{ai_message}"')
             print("="*70 + "\n")
             
             # Ask user for confirmation
@@ -241,7 +306,7 @@ Commit message:"""
                     return
         
         # Commit with the chosen message
-        print(f"\n💾 Committing with message: \"{commit_message}\"")
+        print(f"\n💾 Committing: \"{commit_message}\"")
         if not self._run_command(["git", "commit", "-m", commit_message]):
             input("\nPress Enter to continue...")
             return
@@ -272,7 +337,7 @@ Commit message:"""
             message = summarizer.generate_commit_message_for_staged_changes()
             return message
         except Exception as e:
-            print(f"⚠️  Fallback analyzer error: {e}")
+            print(f"⚠️  Fallback error: {e}")
             return "chore: update repository"
     
     def _auto_generate_changelog(self):
