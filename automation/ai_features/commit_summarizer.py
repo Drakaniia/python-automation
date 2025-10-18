@@ -71,7 +71,7 @@ class CommitSummarizer:
             return message
         except Exception as e:
             print(f"Debug: Error in generate_commit_message_for_staged_changes: {e}")
-            return None
+            return "📝 Update files"
     
     def generate_changelog(self, target_dir=None, num_commits=10):
         """
@@ -143,10 +143,14 @@ class CommitSummarizer:
                 capture_output=True,
                 text=True,
                 check=True,
-                cwd=self.current_dir
+                cwd=self.current_dir,
+                encoding='utf-8',
+                errors='replace'  # Replace invalid characters
             )
             return result.stdout
         except subprocess.CalledProcessError:
+            return ""
+        except Exception:
             return ""
     
     def _get_staged_files(self):
@@ -157,10 +161,14 @@ class CommitSummarizer:
                 capture_output=True,
                 text=True,
                 check=True,
-                cwd=self.current_dir
+                cwd=self.current_dir,
+                encoding='utf-8',
+                errors='replace'
             )
             return [f.strip() for f in result.stdout.strip().split('\n') if f.strip()]
         except subprocess.CalledProcessError:
+            return []
+        except Exception:
             return []
     
     def _analyze_diff(self, diff_output, changed_files):
@@ -315,7 +323,7 @@ class CommitSummarizer:
         return result.returncode == 0
     
     def _get_commit_history(self, limit):
-        """Get detailed commit history"""
+        """Get detailed commit history with Windows encoding support"""
         try:
             # Format: hash|author|date|message
             result = subprocess.run(
@@ -323,7 +331,9 @@ class CommitSummarizer:
                 capture_output=True,
                 text=True,
                 check=True,
-                cwd=self.current_dir
+                cwd=self.current_dir,
+                encoding='utf-8',
+                errors='replace'  # Replace invalid characters instead of crashing
             )
             
             commits = []
@@ -348,15 +358,20 @@ class CommitSummarizer:
             return commits
         except subprocess.CalledProcessError:
             return []
+        except Exception as e:
+            print(f"Debug: Error getting commit history: {e}")
+            return []
     
     def _get_commit_stats(self, commit_hash):
-        """Get file change statistics for a commit"""
+        """Get file change statistics for a commit with Windows encoding support"""
         try:
             result = subprocess.run(
                 ["git", "show", "--stat", "--oneline", commit_hash],
                 capture_output=True,
                 text=True,
-                cwd=self.current_dir
+                cwd=self.current_dir,
+                encoding='utf-8',
+                errors='replace'  # Replace invalid characters
             )
             
             # Parse statistics
@@ -366,6 +381,9 @@ class CommitSummarizer:
                 'deletions': 0,
                 'files': []
             }
+            
+            if not result.stdout:
+                return stats
             
             lines = result.stdout.split('\n')
             for line in lines[1:]:  # Skip first line (commit message)
@@ -387,7 +405,8 @@ class CommitSummarizer:
                         stats['deletions'] += int(match.group(1))
             
             return stats
-        except Exception:
+        except Exception as e:
+            print(f"Debug: Error getting commit stats: {e}")
             return {'files_changed': 0, 'insertions': 0, 'deletions': 0, 'files': []}
     
     def _analyze_commits(self, commits):
