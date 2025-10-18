@@ -1,7 +1,7 @@
 """
 Git Push AI Module
 Handles AI-powered commit message generation and push operations
-Now includes automatic changelog generation after successful push
+Includes automatic changelog generation after successful push
 """
 import subprocess
 from pathlib import Path
@@ -93,15 +93,9 @@ class GitPushAI:
     def _auto_generate_changelog(self):
         """
         Automatically generate and update changelog after successful push
-        This is the new integration point for the AI Commit Summarizer
         """
         try:
-            # Import from the correct location based on your file structure
-            try:
-                from automation.ai_features.commit_summarizer import CommitSummarizer
-            except ImportError:
-                # Fallback: try importing from readme_whisperer if that's where it is
-                from automation.ai_features.readme_whisperer import CommitSummarizer
+            from automation.github.commit_summarizer import CommitSummarizer
             
             summarizer = CommitSummarizer()
             
@@ -117,12 +111,7 @@ class GitPushAI:
     def _generate_ai_commit_message(self):
         """Generate AI-powered commit message from staged changes"""
         try:
-            # Import from the correct location based on your file structure
-            try:
-                from automation.ai_features.commit_summarizer import CommitSummarizer
-            except ImportError:
-                # Fallback: try importing from readme_whisperer if that's where it is
-                from automation.ai_features.readme_whisperer import CommitSummarizer
+            from automation.github.commit_summarizer import CommitSummarizer
             
             summarizer = CommitSummarizer()
             message = summarizer.generate_commit_message_for_staged_changes()
@@ -136,7 +125,9 @@ class GitPushAI:
         result = subprocess.run(
             ["git", "status", "--porcelain"],
             capture_output=True,
-            text=True
+            text=True,
+            encoding='utf-8',
+            errors='replace'
         )
         return bool(result.stdout.strip())
     
@@ -145,18 +136,22 @@ class GitPushAI:
         result = subprocess.run(
             ["git", "rev-parse", "--is-inside-work-tree"],
             capture_output=True,
-            text=True
+            text=True,
+            encoding='utf-8',
+            errors='replace'
         )
         return result.returncode == 0
     
     def _run_command(self, command):
-        """Run a shell command and display output"""
+        """Run a shell command and display output with proper encoding handling"""
         try:
             result = subprocess.run(
                 command,
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
+                encoding='utf-8',
+                errors='replace'
             )
             if result.stdout:
                 print(result.stdout)

@@ -18,7 +18,7 @@ class CommitSummarizer:
     def auto_generate_after_push(self, num_commits=1):
         """
         Automatically generate changelog entry after a push
-        This is called internally by git_push_ai.py
+        This is called internally by git push operations
         
         Args:
             num_commits: Number of recent commits to summarize (default: 1 for last commit)
@@ -73,70 +73,10 @@ class CommitSummarizer:
             print(f"Debug: Error in generate_commit_message_for_staged_changes: {e}")
             return "📝 Update files"
     
-    def generate_changelog(self, target_dir=None, num_commits=10):
-        """
-        Generate changelog entry from recent commits (manual trigger)
-        
-        Args:
-            target_dir: Path to target directory (default: current directory)
-            num_commits: Number of recent commits to analyze
-        """
-        if target_dir:
-            self.current_dir = Path(target_dir)
-        else:
-            self.current_dir = Path.cwd()
-        
-        print("\n" + "="*70)
-        print("🧾 COMMIT SUMMARIZER - AI-Powered Changelog Generator")
-        print("="*70)
-        print(f"\n📍 Target Directory: {self.current_dir}")
-        print(f"📍 Absolute Path: {self.current_dir.absolute()}\n")
-        
-        # Step 1: Verify git repository
-        if not self._is_git_repo():
-            print("❌ Not a git repository. Please initialize git first.")
-            input("\nPress Enter to continue...")
-            return
-        
-        # Step 2: Get commit history
-        print(f"📊 Analyzing last {num_commits} commits...")
-        commits = self._get_commit_history(num_commits)
-        
-        if not commits:
-            print("❌ No commits found in this repository.")
-            input("\nPress Enter to continue...")
-            return
-        
-        print(f"✅ Found {len(commits)} commits\n")
-        
-        # Step 3: Analyze commit patterns
-        print("🔍 Analyzing commit patterns...")
-        analysis = self._analyze_commits(commits)
-        
-        # Step 4: Generate changelog entry
-        print("✍️  Generating changelog entry...\n")
-        changelog_entry = self._generate_entry(commits, analysis)
-        
-        # Step 5: Preview and confirm
-        print("="*70)
-        print("📄 GENERATED CHANGELOG ENTRY")
-        print("="*70)
-        print(changelog_entry)
-        print("="*70 + "\n")
-        
-        choice = input("Save this to CHANGELOG.md? (y/n): ").strip().lower()
-        
-        if choice == 'y':
-            self._save_changelog(changelog_entry)
-        else:
-            print("\n❌ Changelog generation cancelled.")
-        
-        input("\nPress Enter to continue...")
-    
     # ========== AI COMMIT MESSAGE GENERATION ==========
     
     def _get_staged_diff(self):
-        """Get diff of staged changes"""
+        """Get diff of staged changes with proper encoding handling"""
         try:
             result = subprocess.run(
                 ["git", "diff", "--cached"],
@@ -145,7 +85,7 @@ class CommitSummarizer:
                 check=True,
                 cwd=self.current_dir,
                 encoding='utf-8',
-                errors='replace'  # Replace invalid characters
+                errors='replace'
             )
             return result.stdout
         except subprocess.CalledProcessError:
@@ -154,7 +94,7 @@ class CommitSummarizer:
             return ""
     
     def _get_staged_files(self):
-        """Get list of staged files"""
+        """Get list of staged files with proper encoding handling"""
         try:
             result = subprocess.run(
                 ["git", "diff", "--cached", "--name-only"],
@@ -323,9 +263,8 @@ class CommitSummarizer:
         return result.returncode == 0
     
     def _get_commit_history(self, limit):
-        """Get detailed commit history with Windows encoding support"""
+        """Get detailed commit history with proper encoding support"""
         try:
-            # Format: hash|author|date|message
             result = subprocess.run(
                 ["git", "log", f"-{limit}", "--pretty=format:%H|%an|%ai|%s"],
                 capture_output=True,
@@ -333,7 +272,7 @@ class CommitSummarizer:
                 check=True,
                 cwd=self.current_dir,
                 encoding='utf-8',
-                errors='replace'  # Replace invalid characters instead of crashing
+                errors='replace'
             )
             
             commits = []
@@ -363,7 +302,7 @@ class CommitSummarizer:
             return []
     
     def _get_commit_stats(self, commit_hash):
-        """Get file change statistics for a commit with Windows encoding support"""
+        """Get file change statistics for a commit with proper encoding support"""
         try:
             result = subprocess.run(
                 ["git", "show", "--stat", "--oneline", commit_hash],
@@ -371,10 +310,9 @@ class CommitSummarizer:
                 text=True,
                 cwd=self.current_dir,
                 encoding='utf-8',
-                errors='replace'  # Replace invalid characters
+                errors='replace'
             )
             
-            # Parse statistics
             stats = {
                 'files_changed': 0,
                 'insertions': 0,
@@ -386,16 +324,14 @@ class CommitSummarizer:
                 return stats
             
             lines = result.stdout.split('\n')
-            for line in lines[1:]:  # Skip first line (commit message)
+            for line in lines[1:]:
                 if '|' in line:
-                    # File change line
                     parts = line.split('|')
                     if len(parts) >= 2:
                         filename = parts[0].strip()
                         stats['files'].append(filename)
                         stats['files_changed'] += 1
                 
-                # Summary line: "X files changed, Y insertions(+), Z deletions(-)"
                 if 'changed' in line:
                     match = re.search(r'(\d+) insertion', line)
                     if match:
@@ -422,7 +358,6 @@ class CommitSummarizer:
             'affected_files': set()
         }
         
-        # Keywords for categorization
         feature_keywords = ['add', 'new', 'feature', 'implement', 'create']
         fix_keywords = ['fix', 'bug', 'patch', 'resolve', 'correct']
         refactor_keywords = ['refactor', 'clean', 'improve', 'optimize', 'update']
@@ -432,12 +367,10 @@ class CommitSummarizer:
             msg = commit['message'].lower()
             stats = commit['stats']
             
-            # Update totals
             analysis['total_insertions'] += stats['insertions']
             analysis['total_deletions'] += stats['deletions']
             analysis['affected_files'].update(stats['files'])
             
-            # Categorize commit
             categorized = False
             
             if any(kw in msg for kw in feature_keywords):
@@ -460,18 +393,13 @@ class CommitSummarizer:
     
     def _generate_entry(self, commits, analysis):
         """Generate formatted changelog entry"""
-        # Get version or date
         today = datetime.now().strftime('%Y-%m-%d')
-        
-        # Choose a mood emoji based on changes
         mood = self._determine_mood(analysis)
         
-        # Build entry
         lines = []
         lines.append(f"### {today} — {mood}")
         lines.append("")
         
-        # Summary line
         total_commits = len(commits)
         files_count = len(analysis['affected_files'])
         net_changes = analysis['total_insertions'] - analysis['total_deletions']
@@ -481,42 +409,36 @@ class CommitSummarizer:
                     f"The codebase {change_verb} by {abs(net_changes)} lines.")
         lines.append("")
         
-        # Features
         if analysis['features']:
             lines.append("#### ✨ New Features")
-            for commit in analysis['features'][:5]:  # Limit to 5
+            for commit in analysis['features'][:5]:
                 lines.append(f"- {commit['message']} (`{commit['short_hash']}`)")
             lines.append("")
         
-        # Fixes
         if analysis['fixes']:
             lines.append("#### 🐛 Bug Fixes")
             for commit in analysis['fixes'][:5]:
                 lines.append(f"- {commit['message']} (`{commit['short_hash']}`)")
             lines.append("")
         
-        # Refactors
         if analysis['refactors']:
             lines.append("#### 🔧 Refactoring & Improvements")
             for commit in analysis['refactors'][:5]:
                 lines.append(f"- {commit['message']} (`{commit['short_hash']}`)")
             lines.append("")
         
-        # Documentation
         if analysis['docs']:
             lines.append("#### 📚 Documentation")
             for commit in analysis['docs'][:3]:
                 lines.append(f"- {commit['message']} (`{commit['short_hash']}`)")
             lines.append("")
         
-        # Other changes
         if analysis['other']:
             lines.append("#### 🔄 Other Changes")
             for commit in analysis['other'][:3]:
                 lines.append(f"- {commit['message']} (`{commit['short_hash']}`)")
             lines.append("")
         
-        # Contributors
         authors = set(c['author'] for c in commits)
         if len(authors) > 1:
             lines.append(f"**Contributors:** {', '.join(sorted(authors))}")
@@ -548,14 +470,11 @@ class CommitSummarizer:
         changelog_path = self.current_dir / "CHANGELOG.md"
         
         try:
-            # Check if CHANGELOG exists
             if changelog_path.exists():
                 with open(changelog_path, 'r', encoding='utf-8') as f:
                     existing_content = f.read()
                 
-                # Prepend new entry after header
                 if existing_content.startswith('# '):
-                    # Find end of header
                     lines = existing_content.split('\n')
                     header_end = 0
                     for i, line in enumerate(lines):
@@ -572,7 +491,6 @@ class CommitSummarizer:
                 
                 print(f"✅ Changelog entry added to: {changelog_path}")
             else:
-                # Create new CHANGELOG
                 with open(changelog_path, 'w', encoding='utf-8') as f:
                     f.write("# Changelog\n\n")
                     f.write("All notable changes to this project will be documented in this file.\n\n")
