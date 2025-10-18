@@ -292,7 +292,6 @@ class MainMenu(Menu):
             MenuItem("GitHub Operations", lambda: GitMenu().run()),
             MenuItem("Show Project Structure", lambda: structure_viewer.show_structure()),
             MenuItem("Navigate Folders", lambda: folder_nav.navigate()),
-            MenuItem("AI Automation Features", lambda: AIFeaturesMenu().run()),
             MenuItem("Exit", lambda: self.exit_program())
         ]
     
