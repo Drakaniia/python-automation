@@ -1,13 +1,14 @@
 """
 Git Push AI Module
 Handles AI-powered commit message generation and push operations
+Now includes automatic changelog generation after successful push
 """
 import subprocess
 from pathlib import Path
 
 
 class GitPushAI:
-    """Handles AI-assisted git push operations"""
+    """Handles AI-assisted git push operations with automatic changelog generation"""
     
     def __init__(self):
         self.current_dir = Path.cwd()
@@ -75,17 +76,53 @@ class GitPushAI:
         
         # Push to remote
         print("📡 Pushing to remote...")
-        if self._run_command(["git", "push"]):
+        push_success = self._run_command(["git", "push"])
+        
+        if push_success:
             print("\n✅ Successfully pushed to remote!")
+            
+            # ========== AUTOMATIC CHANGELOG GENERATION ==========
+            print("\n" + "─"*70)
+            self._auto_generate_changelog()
+            print("─"*70)
         else:
             print("\n⚠️  Push failed. You may need to set up remote or pull first.")
         
         input("\nPress Enter to continue...")
     
+    def _auto_generate_changelog(self):
+        """
+        Automatically generate and update changelog after successful push
+        This is the new integration point for the AI Commit Summarizer
+        """
+        try:
+            # Import from the correct location based on your file structure
+            try:
+                from automation.ai_features.commit_summarizer import CommitSummarizer
+            except ImportError:
+                # Fallback: try importing from readme_whisperer if that's where it is
+                from automation.ai_features.readme_whisperer import CommitSummarizer
+            
+            summarizer = CommitSummarizer()
+            
+            # Generate changelog for the last commit (the one we just pushed)
+            success = summarizer.auto_generate_after_push(num_commits=1)
+            
+            if not success:
+                print("⚠️  Changelog generation skipped")
+        except Exception as e:
+            print(f"⚠️  Could not auto-generate changelog: {e}")
+            print("   (This is non-critical - your push was successful)")
+    
     def _generate_ai_commit_message(self):
         """Generate AI-powered commit message from staged changes"""
         try:
-            from automation.ai_features.commit_summarizer import CommitSummarizer
+            # Import from the correct location based on your file structure
+            try:
+                from automation.ai_features.commit_summarizer import CommitSummarizer
+            except ImportError:
+                # Fallback: try importing from readme_whisperer if that's where it is
+                from automation.ai_features.readme_whisperer import CommitSummarizer
             
             summarizer = CommitSummarizer()
             message = summarizer.generate_commit_message_for_staged_changes()
