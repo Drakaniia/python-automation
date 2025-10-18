@@ -2,78 +2,115 @@
 Git Push AI Module
 Handles AI-powered commit message generation using GPT4All (offline) and push operations
 Includes automatic changelog generation after successful push
+OPTIMIZED: Fast single-model loading with clean output
 """
 import subprocess
 from pathlib import Path
 import sys
+import os
+import warnings
 
 
 class GitPushAI:
     """Handles AI-assisted git push operations with GPT4All local model"""
     
+    # Class-level model cache (singleton pattern)
+    _model_instance = None
+    _model_loaded = False
+    
+    # Fixed model configuration
+    MODEL_FILENAME = "mistral-7b-instruct-v0.1.Q4_0.gguf"
+    
     def __init__(self):
         self.current_dir = Path.cwd()
-        self.gpt4all_model = None
-        self.model_loaded = False
     
-    def _load_gpt4all_model(self):
-        """Load GPT4All model (lazy loading)"""
-        if self.model_loaded:
-            return self.gpt4all_model is not None
+    @classmethod
+    def _init_ai_model(cls):
+        """
+        Initialize GPT4All model (singleton - loads once per session)
+        Returns the model instance or None if loading fails
+        """
+        # Return cached instance if already loaded
+        if cls._model_loaded:
+            return cls._model_instance
         
         try:
+            # Suppress GPT4All's verbose logging
+            os.environ['GPT4ALL_VERBOSE'] = '0'
+            
+            # Suppress warnings about DLL loading
+            warnings.filterwarnings('ignore', category=UserWarning)
+            warnings.filterwarnings('ignore', category=RuntimeWarning)
+            
             from gpt4all import GPT4All
             
-            # Define model paths
-            models_dir = self.current_dir / "models"
+            # Define model path
+            models_dir = Path.cwd() / "models"
             models_dir.mkdir(exist_ok=True)
+            model_path = models_dir / cls.MODEL_FILENAME
             
-            # Try to find an existing model
-            model_files = list(models_dir.glob("*.gguf")) + list(models_dir.glob("*.bin"))
-            
-            if model_files:
-                model_path = model_files[0]
-                print(f"🔍 Loading model: {model_path.name}...")
-            else:
-                # Download a small, fast model (mistral-7b-instruct recommended)
-                print("📥 Downloading GPT4All model (first time only)...")
+            # Check if model exists
+            if not model_path.exists():
+                print(f"📥 Downloading {cls.MODEL_FILENAME} (first time only)...")
                 print("   This may take a few minutes...")
-                model_name = "mistral-7b-instruct-v0.1.Q4_0.gguf"
                 
-                self.gpt4all_model = GPT4All(
-                    model_name=model_name,
+                cls._model_instance = GPT4All(
+                    model_name=cls.MODEL_FILENAME,
                     model_path=str(models_dir),
                     allow_download=True,
-                    device='cpu'  # Force CPU to avoid CUDA warnings
+                    device='cpu',
+                    verbose=False
                 )
-                print("✅ Model downloaded successfully!")
-                self.model_loaded = True
-                return True
+                print("✅ Model downloaded and ready!")
+            else:
+                # Load existing model with clean output
+                print(f"🔍 Loading AI model: {cls.MODEL_FILENAME}...")
+                
+                # Redirect stderr temporarily to suppress DLL warnings
+                import io
+                import contextlib
+                
+                stderr_buffer = io.StringIO()
+                
+                with contextlib.redirect_stderr(stderr_buffer):
+                    cls._model_instance = GPT4All(
+                        model_name=cls.MODEL_FILENAME,
+                        model_path=str(models_dir),
+                        allow_download=False,
+                        device='cpu',
+                        verbose=False
+                    )
+                
+                print("✅ Model ready!")
             
-            # Load existing model
-            print("   Loading into memory (this takes ~10 seconds)...")
-            self.gpt4all_model = GPT4All(
-                model_name=model_path.name,
-                model_path=str(models_dir),
-                allow_download=False,
-                device='cpu'  # Force CPU to avoid CUDA warnings
-            )
-            print("✅ Model loaded!")
-            self.model_loaded = True
-            return True
+            cls._model_loaded = True
+            return cls._model_instance
             
         except ImportError:
-            print("⚠️  GPT4All not installed. Install with: pip install gpt4all")
-            self.model_loaded = True
-            return False
+            print("❌ Error: GPT4All not installed")
+            print("   Install with: pip install gpt4all")
+            cls._model_loaded = True
+            return None
+        except FileNotFoundError:
+            print(f"❌ Error: Model file not found")
+            print(f"   Expected: {models_dir / cls.MODEL_FILENAME}")
+            print(f"   Tip: Place {cls.MODEL_FILENAME} in the /models folder")
+            cls._model_loaded = True
+            return None
         except Exception as e:
-            print(f"⚠️  Could not load GPT4All model: {e}")
-            self.model_loaded = True
-            return False
+            print(f"❌ Error loading AI model: {e}")
+            print("   Falling back to rule-based commit messages")
+            cls._model_loaded = True
+            return None
     
     def _generate_ai_commit_message_with_gpt4all(self, changed_files):
-        """Generate commit message using GPT4All local model"""
-        if not self._load_gpt4all_model() or self.gpt4all_model is None:
+        """
+        Generate commit message using GPT4All local model
+        Uses cached model instance for fast generation
+        """
+        model = self._init_ai_model()
+        
+        if model is None:
             return None
         
         try:
@@ -100,8 +137,8 @@ Rules:
 
 Commit message:"""
             
-            # Generate with GPT4All
-            response = self.gpt4all_model.generate(
+            # Generate with GPT4All (fast after first load)
+            response = model.generate(
                 prompt,
                 max_tokens=50,
                 temp=0.7,
@@ -113,9 +150,11 @@ Commit message:"""
             message = response.strip()
             
             # Remove common prefixes
-            for prefix in ["Commit message:", "Message:", "**", "```"]:
+            for prefix in ["Commit message:", "Message:", "**", "```", '"', "'"]:
                 if message.startswith(prefix):
                     message = message[len(prefix):].strip()
+                if message.endswith(prefix):
+                    message = message[:-len(prefix)].strip()
             
             # Take only first line
             message = message.split('\n')[0].strip()
