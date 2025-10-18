@@ -1,6 +1,15 @@
 # Changelog
 
 
+### 2025-10-18 — 🧹 Spring Cleaning
+
+**1 commits** across **12 files**. The codebase shrank by 176 lines.
+
+#### 📚 Documentation
+- 🐛 Remove Docs: 12 files (`42b0b14`)
+
+
+
 ### 2025-10-18 — 🔧 Bug Squashing Session
 
 **1 commits** across **5 files**. The codebase shrank by 10 lines.

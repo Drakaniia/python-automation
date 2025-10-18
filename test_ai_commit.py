@@ -2,6 +2,7 @@
 """
 AI Commit Integration Test Script
 Verifies that all components are properly installed and working
+UPDATED for new file structure (commit_summarizer in github/)
 """
 
 import sys
@@ -39,12 +40,13 @@ def test_file_structure():
     print_header("Test 1: File Structure Check")
     
     required_files = {
-        'automation/github/git_push_ai.py': 'NEW - AI Push Handler',
-        'automation/ai_features/commit_summarizer.py': 'UPDATED - Commit Summarizer',
-        'automation/git_operations.py': 'UPDATED - Git Operations',
-        'automation/github/__init__.py': 'UPDATED - GitHub Init',
-        'automation/github/git_status.py': 'EXISTING - Status Handler',
-        'automation/github/git_push.py': 'EXISTING - Push Handler',
+        'automation/github/git_push_ai.py': 'AI Push Handler',
+        'automation/github/commit_summarizer.py': 'RELOCATED - Commit Summarizer',
+        'automation/git_operations.py': 'Git Operations',
+        'automation/github/__init__.py': 'GitHub Init',
+        'automation/github/git_status.py': 'Status Handler',
+        'automation/github/git_push.py': 'Push Handler',
+        'automation/menu.py': 'Menu System',
     }
     
     all_found = True
@@ -55,6 +57,14 @@ def test_file_structure():
             print_error(f"{description}: {filepath} - NOT FOUND")
             all_found = False
     
+    # Check that old location is empty
+    old_location = Path('automation/ai_features/commit_summarizer.py')
+    if old_location.exists():
+        print_warning(f"Old file still exists at: {old_location}")
+        print_info("Consider removing the old ai_features directory")
+    else:
+        print_success("Old ai_features location is clear ✓")
+    
     return all_found
 
 def test_imports():
@@ -63,7 +73,7 @@ def test_imports():
     
     imports_to_test = [
         ('automation.github.git_push_ai', 'GitPushAI'),
-        ('automation.ai_features.commit_summarizer', 'CommitSummarizer'),
+        ('automation.github.commit_summarizer', 'CommitSummarizer'),
         ('automation.git_operations', 'GitOperations'),
         ('automation.github.git_status', 'GitStatus'),
     ]
@@ -88,7 +98,7 @@ def test_commit_summarizer_methods():
     print_header("Test 3: CommitSummarizer Methods Check")
     
     try:
-        from automation.ai_features.commit_summarizer import CommitSummarizer
+        from automation.github.commit_summarizer import CommitSummarizer
         
         summarizer = CommitSummarizer()
         
@@ -98,7 +108,7 @@ def test_commit_summarizer_methods():
             '_get_staged_files',
             '_analyze_diff',
             '_create_commit_message',
-            'generate_changelog',  # Original method
+            'auto_generate_after_push',
         ]
         
         all_methods_exist = True
@@ -160,18 +170,63 @@ def test_git_operations_integration():
         print_error(f"Failed to test GitOperations: {e}")
         return False
 
-def test_menu_integration():
-    """Test 5: Verify menu has AI-powered push option"""
-    print_header("Test 5: Menu Integration Check")
+def test_menu_structure():
+    """Test 5: Verify menu structure (AI Features should be removed)"""
+    print_header("Test 5: Menu Structure Check")
+    
+    try:
+        from automation.menu import MainMenu
+        
+        menu = MainMenu()
+        
+        if hasattr(menu, 'items') and menu.items:
+            print_success(f"Main menu has {len(menu.items)} items")
+            
+            # Check menu labels
+            labels = [item.label for item in menu.items]
+            print_info("Menu items:")
+            for i, label in enumerate(labels, 1):
+                print(f"  {i}. {label}")
+            
+            # Verify AI Features is NOT in menu
+            ai_in_menu = any('AI Automation' in label or 'AI Features' in label for label in labels)
+            
+            if ai_in_menu:
+                print_error("AI Features menu still exists - should be removed!")
+                return False
+            else:
+                print_success("AI Features menu correctly removed ✓")
+            
+            # Check expected menu items
+            expected_items = ['GitHub Operations', 'Project Structure', 'Navigate', 'Exit']
+            all_expected = all(any(exp in label for label in labels) for exp in expected_items)
+            
+            if all_expected:
+                print_success("All expected menu items present")
+                return True
+            else:
+                print_warning("Some expected menu items may be missing")
+                return True  # Non-critical
+        else:
+            print_error("Menu items not properly initialized")
+            return False
+    except Exception as e:
+        print_error(f"Failed to test menu: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def test_git_menu_integration():
+    """Test 6: Verify Git menu has AI-powered push option"""
+    print_header("Test 6: Git Menu AI Integration Check")
     
     try:
         from automation.git_operations import GitMenu
         
         menu = GitMenu()
         
-        # Check if menu items are set up
         if hasattr(menu, 'items') and menu.items:
-            print_success(f"Menu has {len(menu.items)} items")
+            print_success(f"Git menu has {len(menu.items)} items")
             
             # Check for AI-powered push item
             ai_push_found = False
@@ -182,19 +237,20 @@ def test_menu_integration():
                     break
             
             if not ai_push_found:
-                print_warning("AI-powered push option not found in menu (check label)")
+                print_warning("AI-powered push option not found in menu")
+                return False
             
             return True
         else:
-            print_error("Menu items not properly initialized")
+            print_error("Git menu items not properly initialized")
             return False
     except Exception as e:
-        print_error(f"Failed to test menu: {e}")
+        print_error(f"Failed to test Git menu: {e}")
         return False
 
 def test_git_push_ai_instantiation():
-    """Test 6: Verify GitPushAI can be instantiated"""
-    print_header("Test 6: GitPushAI Instantiation Check")
+    """Test 7: Verify GitPushAI can be instantiated"""
+    print_header("Test 7: GitPushAI Instantiation Check")
     
     try:
         from automation.github.git_push_ai import GitPushAI
@@ -204,6 +260,7 @@ def test_git_push_ai_instantiation():
         required_methods = [
             'ai_commit_and_push',
             '_generate_ai_commit_message',
+            '_auto_generate_changelog',
             '_has_changes',
             '_is_git_repo',
         ]
@@ -222,11 +279,11 @@ def test_git_push_ai_instantiation():
         return False
 
 def test_ai_message_generation():
-    """Test 7: Test AI message generation (dry run)"""
-    print_header("Test 7: AI Message Generation Test (Dry Run)")
+    """Test 8: Test AI message generation (dry run)"""
+    print_header("Test 8: AI Message Generation Test (Dry Run)")
     
     try:
-        from automation.ai_features.commit_summarizer import CommitSummarizer
+        from automation.github.commit_summarizer import CommitSummarizer
         
         summarizer = CommitSummarizer()
         
@@ -251,10 +308,39 @@ def test_ai_message_generation():
         traceback.print_exc()
         return False
 
+def test_encoding_fixes():
+    """Test 9: Verify encoding fixes are in place"""
+    print_header("Test 9: Encoding Configuration Check")
+    
+    try:
+        import subprocess
+        from automation.github.commit_summarizer import CommitSummarizer
+        
+        # Check that CommitSummarizer methods exist
+        summarizer = CommitSummarizer()
+        
+        # Verify encoding is handled in subprocess calls
+        # We'll check the source code for encoding parameter
+        import inspect
+        source = inspect.getsource(CommitSummarizer._get_staged_diff)
+        
+        if "encoding='utf-8'" in source and "errors='replace'" in source:
+            print_success("Encoding fixes present in _get_staged_diff")
+        else:
+            print_warning("Encoding fixes may be missing in _get_staged_diff")
+            return False
+        
+        print_success("All encoding checks passed")
+        return True
+    except Exception as e:
+        print_error(f"Failed to verify encoding fixes: {e}")
+        return False
+
 def run_all_tests():
     """Run all tests and provide summary"""
     print(f"\n{Colors.BOLD}{'='*60}")
     print("  AI COMMIT INTEGRATION TEST SUITE")
+    print("  (Updated for Refactored Structure)")
     print(f"{'='*60}{Colors.NC}\n")
     
     tests = [
@@ -262,9 +348,11 @@ def run_all_tests():
         ("Module Imports", test_imports),
         ("CommitSummarizer Methods", test_commit_summarizer_methods),
         ("GitOperations Integration", test_git_operations_integration),
-        ("Menu Integration", test_menu_integration),
+        ("Menu Structure (AI Removed)", test_menu_structure),
+        ("Git Menu Integration", test_git_menu_integration),
         ("GitPushAI Instantiation", test_git_push_ai_instantiation),
         ("AI Message Generation", test_ai_message_generation),
+        ("Encoding Fixes", test_encoding_fixes),
     ]
     
     results = []
@@ -294,14 +382,14 @@ def run_all_tests():
     if passed == total:
         print(f"{Colors.GREEN}{'='*60}")
         print("  ✓ ALL TESTS PASSED!")
-        print("  Your AI commit integration is ready to use!")
+        print("  Your refactoring is complete and working!")
         print(f"{'='*60}{Colors.NC}\n")
-        print(f"{Colors.BLUE}Next step: Run 'python main.py' and test it live!{Colors.NC}\n")
+        print(f"{Colors.BLUE}🎉 Ready to use! Run 'python main.py' to start!{Colors.NC}\n")
         return 0
     else:
         print(f"{Colors.RED}{'='*60}")
         print(f"  ✗ {total - passed} test(s) failed")
-        print("  Please review the errors above and fix them")
+        print("  Please review the errors above")
         print(f"{'='*60}{Colors.NC}\n")
         return 1
 
