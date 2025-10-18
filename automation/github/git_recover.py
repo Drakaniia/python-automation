@@ -151,7 +151,9 @@ class GitRecover:
             result = subprocess.run(
                 ["git", "reset", "--hard", commit_hash],
                 capture_output=True,
-                text=True
+                text=True,
+                encoding='utf-8',
+                errors='replace'
             )
             
             if result.returncode == 0:
@@ -172,7 +174,9 @@ class GitRecover:
         result = subprocess.run(
             ["git", "reset", "--soft", commit_hash],
             capture_output=True,
-            text=True
+            text=True,
+            encoding='utf-8',
+            errors='replace'
         )
         
         if result.returncode == 0:
@@ -198,7 +202,9 @@ class GitRecover:
         result = subprocess.run(
             ["git", "checkout", "-b", branch_name, commit_hash],
             capture_output=True,
-            text=True
+            text=True,
+            encoding='utf-8',
+            errors='replace'
         )
         
         if result.returncode == 0:
@@ -215,6 +221,8 @@ class GitRecover:
         result = subprocess.run(
             ["git", "rev-parse", "--is-inside-work-tree"],
             capture_output=True,
-            text=True
+            text=True,
+            encoding='utf-8',
+            errors='replace'
         )
         return result.returncode == 0

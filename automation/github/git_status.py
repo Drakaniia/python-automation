@@ -32,7 +32,9 @@ class GitStatus:
                 ["git", "status", "--porcelain"],
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
+                encoding='utf-8',
+                errors='replace'
             )
             return result.stdout.strip()
         except subprocess.CalledProcessError:
@@ -48,7 +50,9 @@ class GitStatus:
         result = subprocess.run(
             ["git", "rev-parse", "--is-inside-work-tree"],
             capture_output=True,
-            text=True
+            text=True,
+            encoding='utf-8',
+            errors='replace'
         )
         return result.returncode == 0
     
@@ -59,7 +63,9 @@ class GitStatus:
                 command,
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
+                encoding='utf-8',
+                errors='replace'
             )
             if result.stdout:
                 print(result.stdout)

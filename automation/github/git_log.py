@@ -34,8 +34,13 @@ class GitLog:
                 ["git", "log", f"-{limit}", "--pretty=format:%H|%an|%ai|%s"],
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
+                encoding='utf-8',
+                errors='replace'
             )
+            
+            if not result.stdout:
+                return []
             
             commits = []
             for line in result.stdout.strip().split('\n'):
@@ -58,9 +63,14 @@ class GitLog:
                         })
             
             return commits
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
+            print(f"Error getting commit history: {e}")
             return []
         except FileNotFoundError:
+            print("Git not found in PATH")
+            return []
+        except Exception as e:
+            print(f"Unexpected error: {e}")
             return []
     
     def get_commit_details(self, commit_id):
@@ -70,8 +80,13 @@ class GitLog:
                 ["git", "log", "-1", "--pretty=format:%H|%an|%ai|%s", commit_id],
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
+                encoding='utf-8',
+                errors='replace'
             )
+            
+            if not result.stdout:
+                return None
             
             parts = result.stdout.strip().split('|', 3)
             if len(parts) == 4:
@@ -88,7 +103,8 @@ class GitLog:
                     'date': formatted_date,
                     'message': message
                 }
-        except:
+        except Exception as e:
+            print(f"Error getting commit details: {e}")
             pass
         
         return None
@@ -98,7 +114,9 @@ class GitLog:
         result = subprocess.run(
             ["git", "cat-file", "-t", commit_id],
             capture_output=True,
-            text=True
+            text=True,
+            encoding='utf-8',
+            errors='replace'
         )
         return result.returncode == 0
     
@@ -107,7 +125,9 @@ class GitLog:
         result = subprocess.run(
             ["git", "rev-parse", "--is-inside-work-tree"],
             capture_output=True,
-            text=True
+            text=True,
+            encoding='utf-8',
+            errors='replace'
         )
         return result.returncode == 0
     
@@ -118,7 +138,9 @@ class GitLog:
                 command,
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
+                encoding='utf-8',
+                errors='replace'
             )
             if result.stdout:
                 print(result.stdout)

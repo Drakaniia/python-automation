@@ -2,24 +2,6 @@
 # 🔧 Python Automation Project
 # ===============================
 
-# Ignore local AI models and large binaries
-models/
-*.bin
-*.gguf
-*.pth
-*.safetensors
-*.onnx
-
-# Keep models folder, ignore its contents
-models/*
-!models/.gitkeep
-
-
-# Keep models folder, ignore its contents
-models/*
-!models/.gitkeep
-
-
 # Ignore Python cache and build files
 __pycache__/
 *.pyc
@@ -59,13 +41,12 @@ htmlcov/
 secrets.json
 token.json
 
-# Optional: ignore generated structure or AI test files
+# Optional: ignore test files
 test_ai_commit.py
 test_gpt4all.py
 
 # ===============================
 # ✅ Notes:
-# - Keeps AI model weights (like mistral-7b-instruct-v0.1.Q4_0.gguf)
-#   out of your commits.
-# - You can manually copy model files into /models on each machine.
+# - Lightweight system with no external AI models
+# - Smart commit messages using pattern analysis
 # ===============================
