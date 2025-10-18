@@ -1,0 +1,57 @@
+{
+  "_comment": "Magic Automation System Configuration",
+  "_docs": "Edit this file to customize behavior",
+  "git": {
+    "default_branch": "main",
+    "auto_changelog": true,
+    "commit_template": "{emoji} {action} {scope}: {description}",
+    "push_with_lease": false,
+    "auto_stage_all": true
+  },
+  "ui": {
+    "enable_colors": true,
+    "enable_emojis": true,
+    "menu_style": "arrows",
+    "clear_screen": true,
+    "show_hints": true
+  },
+  "paths": {
+    "exclude_dirs": [
+      "__pycache__",
+      ".git",
+      "node_modules",
+      "venv",
+      ".venv",
+      "env",
+      "dist",
+      "build",
+      ".pytest_cache",
+      ".coverage"
+    ],
+    "exclude_files": [
+      "*.pyc",
+      "*.pyo",
+      "*.pyd",
+      ".DS_Store",
+      "Thumbs.db",
+      "*.swp",
+      "*.log"
+    ]
+  },
+  "limits": {
+    "commit_history": 50,
+    "log_display": 10,
+    "max_commit_message_length": 72
+  },
+  "ai": {
+    "enable_smart_commits": true,
+    "analyze_diff_lines": 500,
+    "suggest_scope": true,
+    "suggest_emoji": true
+  },
+  "debug": {
+    "verbose": false,
+    "log_git_commands": false,
+    "show_stack_traces": false
+  }
+}

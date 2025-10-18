@@ -1,135 +1,98 @@
 """
-Git Push/Pull Module
-Handles push, pull, and synchronization operations
+Git Push Module
+Handles push operations with improved error handling and logging
 """
-import subprocess
+from automation.core import get_git_client, get_logger, get_config, GitError
 
+logger = get_logger()
 
 class GitPush:
-    """Handles git push and pull operations"""
+    """Handles git push and commit operations"""
     
     def __init__(self):
-        pass
-    
-    def pull(self):
-        """Pull from remote repository"""
-        print("\n" + "="*70)
-        print("⬇️  GIT PULL")
-        print("="*70 + "\n")
-        
-        if not self._is_git_repo():
-            print("❌ Not a git repository. Please initialize git first.")
-            input("\nPress Enter to continue...")
-            return
-        
-        self._run_command(["git", "pull"])
-        input("\nPress Enter to continue...")
+        self.git = get_git_client()
+        self.config = get_config()
     
     def push(self):
         """Add, commit, and push changes to remote"""
+        self._display_header()
+        
+        # Validate repository
+        if not self._validate_repo():
+            return
+        
+        # Get commit message
+        commit_msg = self._get_commit_message()
+        if not commit_msg:
+            return
+        
+        # Execute push workflow
+        try:
+            self._stage_files()
+            self._create_commit(commit_msg)
+            self._push_to_remote()
+            logger.success("Push completed successfully!")
+        except GitError as e:
+            logger.error(f"Push failed: {e}")
+        finally:
+            input("\nPress Enter to continue...")
+    
+    def _display_header(self):
+        """Display operation header"""
         print("\n" + "="*70)
         print("⬆️  GIT PUSH")
         print("="*70 + "\n")
-        
-        if not self._is_git_repo():
-            print("❌ Not a git repository. Please initialize git first.")
+    
+    def _validate_repo(self) -> bool:
+        """Validate git repository"""
+        if not self.git.is_repo():
+            logger.error("Not a git repository. Initialize git first.")
             input("\nPress Enter to continue...")
-            return
+            return False
+        return True
+    
+    def _get_commit_message(self) -> str:
+        """Get commit message from user"""
+        max_length = self.config.get('limits.max_commit_message_length', 72)
         
         commit_msg = input("Enter commit message: ").strip()
+        
         if not commit_msg:
-            print("❌ Commit message cannot be empty")
+            logger.error("Commit message cannot be empty")
             input("\nPress Enter to continue...")
-            return
+            return ""
         
-        print("\n🔧 Adding files...")
-        if not self._run_command(["git", "add", "."]):
-            input("\nPress Enter to continue...")
-            return
+        if len(commit_msg) > max_length:
+            logger.warning(f"Message is long ({len(commit_msg)} chars). "
+                         f"Consider keeping it under {max_length} chars.")
         
-        print("\n💾 Creating commit...")
-        if not self._run_command(["git", "commit", "-m", commit_msg]):
-            input("\nPress Enter to continue...")
-            return
+        return commit_msg
+    
+    def _stage_files(self):
+        """Stage all changes"""
+        logger.step("Staging files")
         
-        print("\n⬆️  Pushing to remote...")
-        if self._run_command(["git", "push"]):
-            print("\n✅ Successfully pushed to remote!")
+        if not self.git.add():
+            raise GitError("Failed to stage files")
         
-        input("\nPress Enter to continue...")
+        logger.success("Files staged")
     
-    def force_push(self, branch="main"):
-        """Force push to remote (use with caution)"""
-        print("\n⚠️  WARNING: Force push will overwrite remote history!")
-        confirm = input("Type 'YES' to confirm: ").strip()
+    def _create_commit(self, message: str):
+        """Create commit with message"""
+        logger.step("Creating commit")
         
-        if confirm == 'YES':
-            print("\n🔧 Force pushing...")
-            if self._run_command(["git", "push", "--force", "origin", branch]):
-                print("\n✅ Force push completed!")
-            else:
-                print("\n❌ Force push failed!")
-        else:
-            print("\n❌ Force push cancelled.")
+        if not self.git.commit(message):
+            raise GitError("Failed to create commit")
+        
+        logger.success(f"Commit created: {message[:50]}")
     
-    def push_with_upstream(self, branch="main"):
-        """Push and set upstream tracking"""
-        print(f"\n⬆️  Pushing to origin/{branch} with upstream...")
-        return self._run_command(["git", "push", "-u", "origin", branch])
-    
-    def get_remote_url(self):
-        """Get the current remote URL"""
-        try:
-            result = subprocess.run(
-                ["git", "remote", "get-url", "origin"],
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            return result.stdout.strip()
-        except subprocess.CalledProcessError:
-            return None
-    
-    def set_remote_url(self, url):
-        """Set or update the remote URL"""
-        # Check if remote exists
-        if self.get_remote_url():
-            print("⚠️  Remote 'origin' exists, updating URL...")
-            return self._run_command(["git", "remote", "set-url", "origin", url])
-        else:
-            print("➕ Adding remote 'origin'...")
-            return self._run_command(["git", "remote", "add", "origin", url])
-    
-    def _is_git_repo(self):
-        """Check if current directory is a git repository"""
-        result = subprocess.run(
-            ["git", "rev-parse", "--is-inside-work-tree"],
-            capture_output=True,
-            text=True
-        )
-        return result.returncode == 0
-    
-    def _run_command(self, command):
-        """Run a shell command and display output"""
-        try:
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            if result.stdout:
-                print(result.stdout)
-            if result.stderr:
-                print(result.stderr)
-            return True
-        except subprocess.CalledProcessError as e:
-            print(f"❌ Error: {e}")
-            if e.stdout:
-                print(e.stdout)
-            if e.stderr:
-                print(e.stderr)
-            return False
-        except FileNotFoundError:
-            print("❌ Git is not installed or not in PATH")
-            return False
+    def _push_to_remote(self):
+        """Push to remote repository"""
+        logger.step("Pushing to remote")
+        
+        remote = self.config.get('git.default_remote', 'origin')
+        
+        if not self.git.push(remote=remote):
+            raise GitError("Failed to push to remote")
+        
+        logger.success(f"Pushed to {remote}")
