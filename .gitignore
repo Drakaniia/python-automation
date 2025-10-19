@@ -49,4 +49,5 @@ test_gpt4all.py
 # ✅ Notes:
 # - Lightweight system with no external AI models
 # - Smart commit messages using pattern analysis
-# ===============================
+# ===============================__pycache__/
+*.pyc
