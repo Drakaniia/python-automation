@@ -1,6 +1,6 @@
 """
-Menu System Module - Complete Fix for Navigation Issues
-Prevents duplication and ensures smooth, stable navigation
+Menu System Module - Fixed Navigation
+Removed buggy partial redraw - now does full clean refresh on navigation
 """
 from abc import ABC, abstractmethod
 import os
@@ -36,11 +36,6 @@ class MenuItem:
 class Menu(ABC):
     """Abstract base class for all menus with smooth navigation"""
     
-    # ANSI escape codes
-    HIDE_CURSOR = '\033[?25l'
-    SHOW_CURSOR = '\033[?25h'
-    CLEAR_LINE = '\033[2K'
-    
     def __init__(self, title):
         self.title = title
         self.items = []
@@ -54,19 +49,15 @@ class Menu(ABC):
         pass
     
     def display(self, selected_idx=0):
-        """Display the complete menu"""
+        """Display the complete menu with full screen refresh"""
         self.clear_screen()
-        self._print_menu(selected_idx)
-    
-    def _print_menu(self, selected_idx):
-        """Print the entire menu with proper formatting"""
         print("=" * 70)
         print(f"  {self.title}")
         print("=" * 70)
         print(f"  📍 Current Directory: {Path.cwd()}")
         print("=" * 70)
         
-        # Print each item exactly once
+        # Print each item
         for i in range(len(self.items)):
             self._print_item(i, self.items[i], i == selected_idx)
         
@@ -79,50 +70,14 @@ class Menu(ABC):
     
     def _print_item(self, index, item, is_selected):
         """Print a single menu item with correct formatting"""
-        # Create the base line
         line_text = f"{index + 1}. {item.label}"
         
         if is_selected:
-            # Selected item with arrow and highlight
             full_line = f"  ► {line_text}"
-            # Pad to exactly 68 characters
-            full_line = full_line.ljust(68)
             print(f"\033[1;46m{full_line}\033[0m")
         else:
-            # Unselected item
             full_line = f"    {line_text}"
-            # Pad to exactly 68 characters
-            full_line = full_line.ljust(68)
             print(full_line)
-    
-    def _redraw_item(self, index, is_selected):
-        """Redraw a single menu item at its position without affecting others"""
-        if index < 0 or index >= len(self.items):
-            return
-        
-        # Calculate absolute line position
-        # Header: line 1-5 (separator, title, separator, directory, separator)
-        # Menu items start at line 6
-        line_num = 6 + index
-        
-        # Move cursor to line and clear it
-        sys.stdout.write(f'\033[{line_num};1H{self.CLEAR_LINE}')
-        sys.stdout.flush()
-        
-        # Get the item
-        item = self.items[index]
-        line_text = f"{index + 1}. {item.label}"
-        
-        if is_selected:
-            full_line = f"  ► {line_text}"
-            full_line = full_line.ljust(68)
-            sys.stdout.write(f"\033[1;46m{full_line}\033[0m")
-        else:
-            full_line = f"    {line_text}"
-            full_line = full_line.ljust(68)
-            sys.stdout.write(full_line)
-        
-        sys.stdout.flush()
     
     def get_choice_with_arrows(self):
         """Get user choice using arrow keys (if available)"""
@@ -132,90 +87,60 @@ class Menu(ABC):
             return self._traditional_input()
     
     def _arrow_navigation(self):
-        """Navigate with arrow keys - robust version"""
+        """Navigate with arrow keys - does full refresh on each navigation"""
         selected_idx = 0
         
-        # Initial full display
+        # Initial display
         self.display(selected_idx)
         
-        # Hide cursor during navigation
-        sys.stdout.write(self.HIDE_CURSOR)
-        sys.stdout.flush()
-        
-        try:
-            while True:
-                try:
-                    key = self._getch()
-                    
-                    if HAS_MSVCRT:  # Windows handling
-                        if key in ('\xe0', '\x00'):
+        while True:
+            try:
+                key = self._getch()
+                
+                old_idx = selected_idx
+                
+                if HAS_MSVCRT:  # Windows handling
+                    if key in ('\xe0', '\x00'):
+                        arrow = self._getch()
+                        if arrow == 'H':  # Up arrow
+                            selected_idx = (selected_idx - 1) % len(self.items)
+                        elif arrow == 'P':  # Down arrow
+                            selected_idx = (selected_idx + 1) % len(self.items)
+                    elif key == '\r':  # Enter key
+                        return selected_idx + 1
+                    elif key.isdigit():
+                        num = int(key)
+                        if 1 <= num <= len(self.items):
+                            return num
+                    elif key == '\x03':  # Ctrl+C
+                        print("\n\nExiting...")
+                        return len(self.items)
+                
+                else:  # Unix/Linux/Mac handling
+                    if key == '\x1b':  # ESC sequence
+                        next_key = self._getch()
+                        if next_key == '[':
                             arrow = self._getch()
-                            if arrow == 'H':  # Up arrow
-                                old_idx = selected_idx
+                            if arrow == 'A':  # Up arrow
                                 selected_idx = (selected_idx - 1) % len(self.items)
-                                if old_idx != selected_idx:
-                                    self._redraw_item(old_idx, False)
-                                    self._redraw_item(selected_idx, True)
-                            elif arrow == 'P':  # Down arrow
-                                old_idx = selected_idx
+                            elif arrow == 'B':  # Down arrow
                                 selected_idx = (selected_idx + 1) % len(self.items)
-                                if old_idx != selected_idx:
-                                    self._redraw_item(old_idx, False)
-                                    self._redraw_item(selected_idx, True)
-                        elif key == '\r':  # Enter key
-                            sys.stdout.write(self.SHOW_CURSOR)
-                            sys.stdout.flush()
-                            return selected_idx + 1
-                        elif key.isdigit():
-                            num = int(key)
-                            if 1 <= num <= len(self.items):
-                                sys.stdout.write(self.SHOW_CURSOR)
-                                sys.stdout.flush()
-                                return num
-                        elif key == '\x03':  # Ctrl+C
-                            sys.stdout.write(self.SHOW_CURSOR)
-                            sys.stdout.flush()
-                            print("\n\nExiting...")
-                            return len(self.items)
-                    
-                    else:  # Unix/Linux/Mac handling
-                        if key == '\x1b':  # ESC sequence
-                            next_key = self._getch()
-                            if next_key == '[':
-                                arrow = self._getch()
-                                if arrow == 'A':  # Up arrow
-                                    old_idx = selected_idx
-                                    selected_idx = (selected_idx - 1) % len(self.items)
-                                    if old_idx != selected_idx:
-                                        self._redraw_item(old_idx, False)
-                                        self._redraw_item(selected_idx, True)
-                                elif arrow == 'B':  # Down arrow
-                                    old_idx = selected_idx
-                                    selected_idx = (selected_idx + 1) % len(self.items)
-                                    if old_idx != selected_idx:
-                                        self._redraw_item(old_idx, False)
-                                        self._redraw_item(selected_idx, True)
-                        elif key in ['\r', '\n']:  # Enter key
-                            sys.stdout.write(self.SHOW_CURSOR)
-                            sys.stdout.flush()
-                            return selected_idx + 1
-                        elif key.isdigit():
-                            num = int(key)
-                            if 1 <= num <= len(self.items):
-                                sys.stdout.write(self.SHOW_CURSOR)
-                                sys.stdout.flush()
-                                return num
-                        elif key in ['\x03', '\x04']:  # Ctrl+C or Ctrl+D
-                            sys.stdout.write(self.SHOW_CURSOR)
-                            sys.stdout.flush()
-                            print("\n\nExiting...")
-                            return len(self.items)
-                except Exception:
-                    continue
-        finally:
-            # Always restore cursor visibility
-            sys.stdout.write(self.SHOW_CURSOR)
-            sys.stdout.flush()
+                    elif key in ['\r', '\n']:  # Enter key
+                        return selected_idx + 1
+                    elif key.isdigit():
+                        num = int(key)
+                        if 1 <= num <= len(self.items):
+                            return num
+                    elif key in ['\x03', '\x04']:  # Ctrl+C or Ctrl+D
+                        print("\n\nExiting...")
+                        return len(self.items)
+                
+                # If selection changed, redisplay entire menu
+                if old_idx != selected_idx:
+                    self.display(selected_idx)
+                
+            except Exception:
+                continue
     
     def _traditional_input(self):
         """Traditional number input method"""
@@ -258,10 +183,6 @@ class Menu(ABC):
         """Run the menu loop"""
         while True:
             choice = self.get_choice_with_arrows()
-            
-            # Show cursor before executing action
-            sys.stdout.write(self.SHOW_CURSOR)
-            sys.stdout.flush()
             
             # Execute the selected action
             result = self.items[choice - 1].action()
@@ -336,26 +257,3 @@ class MainMenu(Menu):
         print("  Made with ❤️  for developers")
         print("="*70 + "\n")
         return "exit"
-
-
-# Debug utility to verify menu structure
-def debug_menu_items(menu):
-    """Print menu items for debugging"""
-    print(f"\n🔍 Debug: {menu.title}")
-    print(f"   Total items: {len(menu.items)}")
-    for i, item in enumerate(menu.items):
-        print(f"   [{i+1}] {item.label}")
-    print()
-
-
-if __name__ == "__main__":
-    # Test the menu system
-    print("Testing Menu System...")
-    menu = MainMenu()
-    debug_menu_items(menu)
-    
-    print("Menu items verified. Press Ctrl+C to exit test.")
-    try:
-        menu.run()
-    except KeyboardInterrupt:
-        print("\n\nTest interrupted.")
