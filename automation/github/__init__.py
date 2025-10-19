@@ -6,7 +6,6 @@ Contains modular Git operation handlers
 from automation.github.git_status import GitStatus
 from automation.github.git_log import GitLog
 from automation.github.git_push import GitPush
-from automation.github.git_push_ai import GitPushAI
 from automation.github.git_initializer import GitInitializer
 from automation.github.git_recover import GitRecover
 from automation.github.commit_summarizer import CommitSummarizer
