@@ -1,8 +1,7 @@
 """
-Git Push AI Module - Smart Commit Message Generation
-Analyzes code changes to generate contextual commit messages
-No external AI models required - uses pattern analysis
-Enhanced with automatic conflict resolution
+Git Push AI Module - Enhanced Smart Commit Generation
+Integrates advanced commit message generation with multiple strategies
+No external APIs required - uses local analysis and optional local LLM
 """
 import subprocess
 from pathlib import Path
@@ -10,7 +9,7 @@ from typing import List
 
 
 class GitPushAI:
-    """Smart git push with automatic commit message generation and conflict resolution"""
+    """Smart git push with enhanced AI-powered commit generation"""
     
     def __init__(self):
         self.current_dir = Path.cwd()
@@ -18,7 +17,7 @@ class GitPushAI:
     def ai_commit_and_push(self):
         """Main entry point for smart commit and push"""
         print("\n" + "="*70)
-        print("⬆️  GIT PUSH (Smart Commit)")
+        print("⬆️  GIT PUSH (Enhanced Smart Commit)")
         print("="*70 + "\n")
         
         if not self._is_git_repo():
@@ -38,20 +37,20 @@ class GitPushAI:
             return
         print("✅ Files staged\n")
         
-        # Generate smart commit message
-        print("🧠 Analyzing changes and generating commit message...")
-        commit_message = self._generate_smart_commit_message()
+        # Generate enhanced smart commit message
+        print("🧠 Analyzing changes with enhanced AI...")
+        commit_message, analysis = self._generate_enhanced_commit_message()
         
-        # Display generated message
-        print("\n" + "="*70)
-        print("📝 Generated Commit Message:")
-        print("─"*70)
-        print(commit_message)
-        print("="*70 + "\n")
+        # Display analysis and generated message
+        self._display_analysis(analysis, commit_message)
         
-        use_message = input("Use this message? [Y/n/edit]: ").strip().lower()
+        # Get user confirmation
+        use_message = input("\nUse this message? [Y/n/edit/config]: ").strip().lower()
         
-        if use_message in ("", "y", "yes"):
+        if use_message == 'config':
+            self._show_config_menu()
+            return self.ai_commit_and_push()  # Restart with new config
+        elif use_message in ("", "y", "yes"):
             pass  # Use generated message
         elif use_message in ("e", "edit"):
             print(f"\nCurrent:\n{commit_message}\n")
@@ -74,6 +73,110 @@ class GitPushAI:
         
         # Push with automatic conflict resolution
         self._smart_push(commit_message)
+    
+    def _generate_enhanced_commit_message(self):
+        """Generate commit message using enhanced smart generator"""
+        try:
+            # Try to import the enhanced generator
+            try:
+                from automation.github.smart_commit_generator import SmartCommitGenerator
+                
+                generator = SmartCommitGenerator()
+                message = generator.generate_commit_message()
+                
+                # Get analysis for display
+                diff_text = generator._get_git_diff()
+                analysis = generator._analyze_diff(diff_text)
+                
+                return message, analysis
+            except ImportError:
+                # Enhanced generator not available yet
+                print("ℹ️  Using basic commit generator")
+                return self._generate_basic_message(), {}
+        
+        except Exception as e:
+            print(f"⚠️  Generation error: {e}")
+            return self._generate_basic_message(), {}
+    
+    def _generate_basic_message(self):
+        """Basic fallback message generation"""
+        try:
+            from automation.github.commit_summarizer import CommitSummarizer
+            summarizer = CommitSummarizer()
+            return summarizer.generate_commit_message_for_staged_changes()
+        except Exception:
+            return "🚀 Update project files"
+    
+    def _display_analysis(self, analysis: dict, message: str):
+        """Display detailed analysis of changes"""
+        print("\n" + "="*70)
+        print("📊 CHANGE ANALYSIS")
+        print("="*70)
+        
+        if analysis:
+            stats = analysis.get('stats', {})
+            print(f"\n📝 Files Changed: {stats.get('files_changed', 'N/A')}")
+            print(f"➕ Additions: {stats.get('additions', 'N/A')}")
+            print(f"➖ Deletions: {stats.get('deletions', 'N/A')}")
+            
+            if analysis.get('change_type'):
+                print(f"🏷️  Change Type: {analysis['change_type']}")
+            
+            if analysis.get('scope'):
+                print(f"🎯 Scope: {analysis['scope']}")
+            
+            if analysis.get('confidence'):
+                confidence = analysis['confidence'] * 100
+                print(f"📈 Confidence: {confidence:.0f}%")
+            
+            if analysis.get('affected_modules'):
+                modules = ', '.join(list(analysis['affected_modules'])[:3])
+                print(f"📦 Modules: {modules}")
+        
+        print("\n" + "─"*70)
+        print("✨ GENERATED MESSAGE:")
+        print("─"*70)
+        print(f"{message}")
+        print("="*70)
+    
+    def _show_config_menu(self):
+        """Show configuration options"""
+        print("\n" + "="*70)
+        print("⚙️  COMMIT GENERATOR CONFIGURATION")
+        print("="*70)
+        
+        try:
+            from automation.github.smart_commit_generator import SmartCommitGenerator
+            generator = SmartCommitGenerator()
+            
+            print("\n📋 Current Settings:")
+            for key, value in generator.CONFIG.items():
+                print(f"  {key}: {value}")
+            
+            print("\n🔧 Available Modes:")
+            print("  1. heuristic  - Rule-based analysis (fast, no dependencies)")
+            print("  2. local_llm  - Local AI model (requires Ollama)")
+            print("  3. hybrid     - Smart mix of both (recommended)")
+            
+            print("\n💡 Tips:")
+            print("  • Heuristic: Best for quick commits, no setup needed")
+            print("  • Local LLM: Most intelligent, requires: ollama pull tinydolphin")
+            print("  • Hybrid: Automatically chooses best strategy")
+            
+            choice = input("\nSelect mode (1/2/3) or press Enter to keep current: ").strip()
+            
+            mode_map = {'1': 'heuristic', '2': 'local_llm', '3': 'hybrid'}
+            if choice in mode_map:
+                new_mode = mode_map[choice]
+                generator.CONFIG['ai_mode'] = new_mode
+                print(f"\n✅ Mode changed to: {new_mode}")
+                print("⚠️  Note: This change is temporary (session only)")
+            
+        except ImportError:
+            print("\n⚠️  Enhanced generator not available")
+            print("💡 Add smart_commit_generator.py to automation/github/")
+        
+        input("\nPress Enter to continue...")
     
     def _smart_push(self, commit_message: str):
         """Push with automatic conflict resolution"""
@@ -245,17 +348,6 @@ class GitPushAI:
             print("\n✅ Force push cancelled. Good choice!")
         
         input("\nPress Enter to continue...")
-    
-    def _generate_smart_commit_message(self):
-        """Generate commit message by analyzing changes"""
-        try:
-            from automation.github.commit_summarizer import CommitSummarizer
-            summarizer = CommitSummarizer()
-            message = summarizer.generate_commit_message_for_staged_changes()
-            return message
-        except Exception as e:
-            print(f"⚠️  Error generating message: {e}")
-            return "🔧 Update project files"
     
     def _auto_generate_changelog(self):
         """Automatically generate changelog entry"""
