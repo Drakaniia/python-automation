@@ -1,6 +1,6 @@
 """
-Folder Navigator Module - Complete Fix
-Fixes back arrow in empty directories and navigation glitches
+Folder Navigator Module - Smooth Navigation Without Blinking
+Uses cursor positioning to update only the changed directory items
 """
 import os
 import sys
@@ -22,7 +22,7 @@ except ImportError:
 
 
 class FolderNavigator:
-    """Handles interactive folder navigation with arrow key support"""
+    """Handles interactive folder navigation with smooth arrow key support"""
 
     # ANSI escape codes
     HIDE_CURSOR = '\033[?25l'
@@ -34,9 +34,10 @@ class FolderNavigator:
         self.current_path = Path.cwd()
         self.selected_idx = 0
         self.navigation_history = []
+        self._dir_list_start_line = 0  # Track where directory list starts
 
     def navigate(self):
-        """Start the interactive navigation loop with arrow keys"""
+        """Start the interactive navigation loop with smooth arrow keys"""
         while True:
             subdirs = self._get_subdirectories()
 
@@ -44,13 +45,15 @@ class FolderNavigator:
             if subdirs and self.selected_idx >= len(subdirs):
                 self.selected_idx = max(0, len(subdirs) - 1)
 
-            # Full display
-            self._display_navigation(subdirs)
-
-            # Handle user input
+            # Full display on first render or after entering/exiting directories
             action = self._get_user_input(subdirs)
 
             if action == "confirm":
+                # Show cursor before exiting
+                sys.stdout.write(self.SHOW_CURSOR)
+                sys.stdout.flush()
+                
+                self._clear_screen()
                 print(f"\n✅ Directory confirmed: {self.current_path}")
                 print("⚠️  All operations will now work in this directory.\n")
                 input("Press Enter to return to main menu...")
@@ -71,50 +74,94 @@ class FolderNavigator:
                     self.selected_idx = action - 1
                     self._enter_directory(subdirs[self.selected_idx])
 
-    def _display_navigation(self, subdirs):
-        """Display the navigation interface"""
-        self._clear_screen()
-        print("="*70)
-        print("📂 FOLDER NAVIGATOR")
-        print("="*70)
-        print(f"📍 Current Location: {self.current_path}")
-        print(f"📍 Absolute Path: {self.current_path.absolute()}")
-        print("="*70)
+    def _display_navigation(self, subdirs, initial=True):
+        """Display the navigation interface - full refresh only on initial"""
+        if initial:
+            self._clear_screen()
+            # Line 1
+            print("="*70)
+            # Line 2
+            print("📂 FOLDER NAVIGATOR")
+            # Line 3
+            print("="*70)
+            # Line 4
+            print(f"📍 Current Location: {self.current_path}")
+            # Line 5
+            print(f"📍 Absolute Path: {self.current_path.absolute()}")
+            # Line 6
+            print("="*70)
 
-        if not subdirs:
-            print("\n📭 No subdirectories found in current location.")
-            print("    Press ← to go back or Enter to confirm this directory.\n")
-        else:
-            print("\n📁 Available Directories:")
-            print("-" * 70)
-            for idx, subdir in enumerate(subdirs):
-                self._print_directory_item(idx, subdir, idx == self.selected_idx)
-            print("-" * 70)
+            if not subdirs:
+                # Line 7
+                print("\n📭 No subdirectories found in current location.")
+                # Line 8
+                print("    Press ← to go back or Enter to confirm this directory.\n")
+                self._dir_list_start_line = 0  # No list to track
+            else:
+                # Line 7 (blank line from \n in print)
+                # Line 8
+                print("\n📁 Available Directories:")
+                # Line 9
+                print("-" * 70)
+                
+                # Directory items start at line 10 (index 9, but display is 1-indexed)
+                # So we use line 10 for first item
+                self._dir_list_start_line = 10
+                
+                for idx, subdir in enumerate(subdirs):
+                    self._print_directory_item(idx, subdir, idx == self.selected_idx)
+                
+                print("-" * 70)
 
-        # Show navigation instructions
-        print("\nNavigation:")
-        if HAS_TERMIOS or HAS_MSVCRT:
-            print("  • ↑/↓ arrows: Navigate through directories")
-            print("  • → arrow or Number: Enter selected directory")
-            print("  • ← arrow: Go back to parent directory")
-            print("  • Enter: Confirm current directory and return to menu")
-        else:
-            print("  • Type number + Enter: Enter that directory")
-            print("  • Type 'back': Go up one level")
-            print("  • Type 'confirm': Confirm current directory")
-        print("="*70)
+            # Show navigation instructions
+            print("\nNavigation:")
+            if HAS_TERMIOS or HAS_MSVCRT:
+                print("  • ↑/↓ arrows: Navigate through directories")
+                print("  • → arrow or Number: Enter selected directory")
+                print("  • ← arrow: Go back to parent directory")
+                print("  • Enter: Confirm current directory and return to menu")
+            else:
+                print("  • Type number + Enter: Enter that directory")
+                print("  • Type 'back': Go up one level")
+                print("  • Type 'confirm': Confirm current directory")
+            print("="*70)
 
     def _print_directory_item(self, idx, subdir, is_selected):
         """Print a single directory item with proper formatting"""
         line = f"{idx + 1}. {subdir.name}/"
 
         if is_selected:
-            # Pad line to ensure full coverage
-            line = f"  ► {line}".ljust(68)
+            line = f"  ► {line}".ljust(70)
             print(f"\033[1;46m{line}\033[0m")
         else:
-            line = f"    {line}".ljust(68)
+            line = f"    {line}".ljust(70)
             print(line)
+
+    def _update_directory_item(self, idx, subdir, is_selected):
+        """Update a single directory item without clearing screen"""
+        if self._dir_list_start_line == 0:
+            return  # No list to update (empty directory)
+        
+        # Calculate actual line number (start_line is 1-indexed terminal line)
+        line_number = self._dir_list_start_line + idx
+        
+        # Move cursor to that line (terminal lines are 1-indexed)
+        sys.stdout.write(f'\033[{line_number};1H')
+        
+        # Clear the line
+        sys.stdout.write('\033[2K')
+        
+        # Print the updated item
+        line = f"{idx + 1}. {subdir.name}/"
+        
+        if is_selected:
+            line = f"  ► {line}".ljust(70)
+            sys.stdout.write(f"\033[1;46m{line}\033[0m")
+        else:
+            line = f"    {line}".ljust(70)
+            sys.stdout.write(line)
+        
+        sys.stdout.flush()
 
     def _get_user_input(self, subdirs):
         """Get user input with arrow key support"""
@@ -124,7 +171,10 @@ class FolderNavigator:
             return self._traditional_input(subdirs)
 
     def _arrow_input(self, subdirs):
-        """Handle arrow key navigation with proper key handling"""
+        """Handle arrow key navigation with smooth updates"""
+        # Initial full display
+        self._display_navigation(subdirs, initial=True)
+        
         # Hide cursor during navigation
         sys.stdout.write(self.HIDE_CURSOR)
         sys.stdout.flush()
@@ -133,16 +183,19 @@ class FolderNavigator:
             while True:
                 try:
                     key = self._getch()
+                    
+                    old_idx = self.selected_idx
+                    action = None
 
                     if HAS_MSVCRT:  # Windows handling
                         if key in ('\xe0', '\x00'):
                             arrow = self._getch()
                             if arrow == 'H':  # Up arrow
                                 if subdirs:
-                                    return "up"
+                                    action = "up"
                             elif arrow == 'P':  # Down arrow
                                 if subdirs:
-                                    return "down"
+                                    action = "down"
                             elif arrow == 'K':  # Left arrow
                                 sys.stdout.write(self.SHOW_CURSOR)
                                 sys.stdout.flush()
@@ -174,10 +227,10 @@ class FolderNavigator:
                                 arrow = self._getch()
                                 if arrow == 'A':  # Up arrow
                                     if subdirs:
-                                        return "up"
+                                        action = "up"
                                 elif arrow == 'B':  # Down arrow
                                     if subdirs:
-                                        return "down"
+                                        action = "down"
                                 elif arrow == 'D':  # Left arrow
                                     sys.stdout.write(self.SHOW_CURSOR)
                                     sys.stdout.flush()
@@ -206,6 +259,24 @@ class FolderNavigator:
                             sys.stdout.write(self.SHOW_CURSOR)
                             sys.stdout.flush()
                             return "confirm"
+                    
+                    # Handle up/down navigation smoothly
+                    if action == "up":
+                        new_idx = (self.selected_idx - 1) % len(subdirs)
+                        self.selected_idx = new_idx
+                        
+                        # Update only the changed items
+                        self._update_directory_item(old_idx, subdirs[old_idx], is_selected=False)
+                        self._update_directory_item(new_idx, subdirs[new_idx], is_selected=True)
+                    
+                    elif action == "down":
+                        new_idx = (self.selected_idx + 1) % len(subdirs)
+                        self.selected_idx = new_idx
+                        
+                        # Update only the changed items
+                        self._update_directory_item(old_idx, subdirs[old_idx], is_selected=False)
+                        self._update_directory_item(new_idx, subdirs[new_idx], is_selected=True)
+                
                 except KeyboardInterrupt:
                     sys.stdout.write(self.SHOW_CURSOR)
                     sys.stdout.flush()
@@ -218,6 +289,8 @@ class FolderNavigator:
 
     def _traditional_input(self, subdirs):
         """Traditional text-based input"""
+        self._display_navigation(subdirs, initial=True)
+        
         choice = input("\nYour choice: ").strip().lower()
 
         if choice in ['confirm', 'exit', 'q', '']:
