@@ -11,7 +11,6 @@ python-automation/
 │   │   ├── git_log.py (4.6KB)
 │   │   ├── git_pull.py (3.8KB)
 │   │   ├── git_push.py (4.6KB)
-│   │   ├── git_push_ai.py (16.9KB)
 │   │   ├── git_recover.py (8.1KB)
 │   │   └── git_status.py (2.3KB)
 │   ├── __init__.py (133.0B)
