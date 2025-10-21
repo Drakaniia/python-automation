@@ -1,8 +1,9 @@
 """
 tests/test_git_hooks.py
-Tests for Git hooks manager
+Tests for Git hooks manager - Windows compatible version
 """
 import pytest
+import sys
 from pathlib import Path
 from automation.github.git_hooks import GitHooksManager
 
@@ -38,7 +39,11 @@ class TestGitHooksManager:
         
         hook_path = manager.hooks_dir / 'pre-commit'
         assert hook_path.exists()
-        assert hook_path.stat().st_mode & 0o111  # Check executable
+        
+        # Check executable on Unix-like systems only
+        # Windows doesn't use Unix-style executable bits
+        if sys.platform != 'win32':
+            assert hook_path.stat().st_mode & 0o111  # Check executable
     
     def test_install_hook_pre_push(self, temp_git_repo, monkeypatch):
         """Test installing pre-push hook"""
