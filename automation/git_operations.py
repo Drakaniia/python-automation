@@ -10,8 +10,6 @@ from automation.github.git_push import GitPush
 from automation.github.git_initializer import GitInitializer
 from automation.github.git_recover import GitRecover
 from automation.github.commit_summarizer import EnhancedCommitSummarizer
-from automation.github.git_hooks import GitHooksManager
-from automation.github.git_visualizations import GitVisualizations
 from automation.menu import Menu, MenuItem
 
 
@@ -29,8 +27,6 @@ class GitOperations:
         self.initializer = GitInitializer()
         self.recovery_handler = GitRecover()
         self.commit_summarizer = EnhancedCommitSummarizer()
-        self.hooks_manager = GitHooksManager()
-        self.visualizations = GitVisualizations()
     
     # ========== BASIC GIT OPERATIONS ==========
     
@@ -206,65 +202,6 @@ class GitOperations:
         print(f"\n📝 Processed Commits: {len(self.commit_summarizer.processed_commits)}")
         
         input("\nPress Enter to continue...")
-    
-    # ========== GIT HOOKS MANAGER ==========
-    
-    def show_hooks_menu(self):
-        """Show git hooks management menu"""
-        print("\n" + "="*70)
-        print("🔗 GIT HOOKS MANAGER")
-        print("="*70 + "\n")
-        
-        if not self.hooks_manager.is_git_repo():
-            print("❌ Not a git repository")
-            input("\nPress Enter to continue...")
-            return
-        
-        while True:
-            print("\nAvailable Operations:")
-            print("  1. List installed hooks")
-            print("  2. Install pre-commit hook")
-            print("  3. Install pre-push hook")
-            print("  4. Install commit-msg hook")
-            print("  5. Install post-commit hook")
-            print("  6. Install post-merge hook")
-            print("  7. Install all hooks")
-            print("  8. Back to menu\n")
-            
-            choice = input("Your choice: ").strip()
-            
-            if choice == '1':
-                self.hooks_manager.list_hooks()
-                input("\nPress Enter to continue...")
-            elif choice == '2':
-                self.hooks_manager.install_hook('pre-commit')
-                input("\nPress Enter to continue...")
-            elif choice == '3':
-                self.hooks_manager.install_hook('pre-push')
-                input("\nPress Enter to continue...")
-            elif choice == '4':
-                self.hooks_manager.install_hook('commit-msg')
-                input("\nPress Enter to continue...")
-            elif choice == '5':
-                self.hooks_manager.install_hook('post-commit')
-                input("\nPress Enter to continue...")
-            elif choice == '6':
-                self.hooks_manager.install_hook('post-merge')
-                input("\nPress Enter to continue...")
-            elif choice == '7':
-                self.hooks_manager.install_all_hooks()
-                input("\nPress Enter to continue...")
-            elif choice == '8':
-                break
-            else:
-                print("\n❌ Invalid choice")
-                input("\nPress Enter to continue...")
-    
-    # ========== GIT VISUALIZATIONS ==========
-    
-    def show_visualizations_menu(self):
-        """Show git visualizations menu"""
-        self.visualizations.show_visualizations_menu()
 
 
 class GitMenu(Menu):
@@ -284,7 +221,5 @@ class GitMenu(Menu):
             MenuItem("Initialize Git & Push to GitHub", lambda: self.git_ops.initialize_and_push()),
             MenuItem("Git Recovery (Revert to Previous Commit)", lambda: self.git_ops.show_recovery_menu()),
             MenuItem("Commit Summarizer & Changelog 🧠", lambda: self.git_ops.show_commit_summarizer_menu()),
-            MenuItem("Git Hooks Manager 🔗", lambda: self.git_ops.show_hooks_menu()),
-            MenuItem("Git Visualizations 📊", lambda: self.git_ops.show_visualizations_menu()),
             MenuItem("Back to Main Menu", lambda: "exit")
         ]

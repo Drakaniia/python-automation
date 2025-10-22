@@ -45,9 +45,12 @@ token.json
 test_ai_commit.py
 test_gpt4all.py
 
+# Ignore __pycache__ in all subdirectories
+**/__pycache__/
+**/.__pycache__/
+
 # ===============================
 # ✅ Notes:
 # - Lightweight system with no external AI models
 # - Smart commit messages using pattern analysis
-# ===============================__pycache__/
-*.pyc
+# ===============================
