@@ -31,9 +31,11 @@ Thumbs.db
 *.bak
 
 # Ignore test artifacts
+.pytest_cache/
 *.pytest_cache/
 .coverage
 htmlcov/
+.benchmarks/
 
 # Ignore environment/config secrets
 *.env
@@ -41,11 +43,14 @@ htmlcov/
 secrets.json
 token.json
 
+# Ignore commit cache
+.commit_cache.json
+
 # Optional: ignore test files
 test_ai_commit.py
 test_gpt4all.py
 
-# Ignore __pycache__ in all subdirectories
+# Ignore __pycache__ in all subdirectories (redundant but explicit)
 **/__pycache__/
 **/.__pycache__/
 
