@@ -7,6 +7,7 @@ from typing import Optional, List, Tuple
 import sys
 import time
 import re
+import subprocess
 
 from automation.core.git_client import get_git_client
 from automation.core.exceptions import (
