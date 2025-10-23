@@ -59,3 +59,14 @@ test_gpt4all.py
 # - Lightweight system with no external AI models
 # - Smart commit messages using pattern analysis
 # ===============================
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+.benchmarks/
+
+# Coverage reports
+*.cover
+coverage.xml
+
