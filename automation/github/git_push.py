@@ -1,12 +1,12 @@
 """
 automation/github/git_push.py
 Enhanced Git push with comprehensive retry strategies and automatic error recovery
+FIXED: Properly detects ALL changes including untracked files
 """
 from pathlib import Path
 from typing import Optional, List, Tuple
 import sys
 import time
-import re
 import subprocess
 
 from automation.core.git_client import get_git_client
@@ -457,9 +457,12 @@ class GitPushRetry:
         return all_passed
     
     def _has_changes(self) -> bool:
-        """Check if there are uncommitted changes"""
+        """Check if there are uncommitted changes or untracked files"""
         try:
-            return self.git.has_uncommitted_changes()
+            # Get porcelain status which includes all changes
+            status = self.git.status(porcelain=True)
+            # Any non-empty output means there are changes
+            return bool(status and status.strip())
         except Exception:
             return False
     
@@ -574,9 +577,14 @@ class GitPush:
         print("⬆️  GIT PUSH (With Auto-Retry)")
         print("="*70 + "\n")
         
-        # Check for changes
+        # Check for changes - INCLUDING UNTRACKED FILES
         if not self._has_changes():
             print("ℹ️  No changes detected. Working directory is clean.")
+            print("\n💡 This includes:")
+            print("   • No modified files")
+            print("   • No deleted files")
+            print("   • No untracked (new) files")
+            print("   • No staged changes")
             input("\nPress Enter to continue...")
             return
         
@@ -606,34 +614,94 @@ class GitPush:
         input("\nPress Enter to continue...")
     
     def _has_changes(self) -> bool:
-        """Check if there are uncommitted changes"""
+        """
+        Check if there are any changes including untracked files
+        
+        Returns True if any of these exist:
+        - Modified tracked files
+        - Deleted tracked files  
+        - Staged changes
+        - Untracked files (new files not yet added)
+        """
         try:
-            return self.git.has_uncommitted_changes()
-        except Exception:
+            # Get full porcelain status
+            status = self.git.status(porcelain=True)
+            
+            # Any non-empty status means there are changes
+            # This includes ?? (untracked), M (modified), D (deleted), etc.
+            has_changes = bool(status and status.strip())
+            
+            # Debug output (optional - remove in production)
+            if not has_changes:
+                # Double-check with a direct git command
+                result = subprocess.run(
+                    ['git', 'status', '--porcelain'],
+                    capture_output=True,
+                    text=True,
+                    cwd=self.current_dir
+                )
+                if result.stdout.strip():
+                    print(f"⚠️  DEBUG: Direct git status shows changes:")
+                    print(f"   {result.stdout[:200]}")
+                    return True
+            
+            return has_changes
+            
+        except Exception as e:
+            print(f"⚠️  Error checking for changes: {e}")
             return False
     
     def _show_changes_summary(self):
-        """Display summary of changes"""
+        """Display detailed summary of all changes"""
         print("📊 Changes to be committed:\n")
         
         try:
             status = self.git.status(porcelain=True)
             
-            if not status:
+            if not status or not status.strip():
                 print("  (none)")
                 return
             
-            # Count changes
-            new_files = len([l for l in status.split('\n') if l.startswith('??')])
-            modified = len([l for l in status.split('\n') if 'M' in l[:2]])
-            deleted = len([l for l in status.split('\n') if 'D' in l[:2]])
+            # Parse porcelain output
+            lines = [l for l in status.split('\n') if l.strip()]
             
+            # Count changes by type
+            untracked = [l for l in lines if l.startswith('??')]
+            new_files = [l for l in lines if l.startswith('A ')]
+            modified = [l for l in lines if ' M' in l[:2] or l.startswith('M')]
+            deleted = [l for l in lines if ' D' in l[:2] or l.startswith('D')]
+            
+            # Show counts
+            if untracked:
+                print(f"  📄 Untracked files: {len(untracked)}")
             if new_files:
-                print(f"  ➕ New files: {new_files}")
+                print(f"  ➕ New files (staged): {len(new_files)}")
             if modified:
-                print(f"  📝 Modified: {modified}")
+                print(f"  📝 Modified: {len(modified)}")
             if deleted:
-                print(f"  ➖ Deleted: {deleted}")
+                print(f"  ➖ Deleted: {len(deleted)}")
+            
+            # Show first few files with status
+            if len(lines) > 0:
+                print("\n  Files:")
+                for line in lines[:15]:  # Show first 15 files
+                    status_code = line[:2]
+                    filename = line[3:].strip() if len(line) > 3 else line[2:].strip()
+                    
+                    # Interpret status code
+                    if status_code == '??':
+                        print(f"    ?? (untracked) {filename}")
+                    elif status_code == 'A ':
+                        print(f"    A  (new)       {filename}")
+                    elif 'M' in status_code:
+                        print(f"    M  (modified)  {filename}")
+                    elif 'D' in status_code:
+                        print(f"    D  (deleted)   {filename}")
+                    else:
+                        print(f"    {status_code} {filename}")
+                
+                if len(lines) > 15:
+                    print(f"    ... and {len(lines) - 15} more files")
             
             print()
         
@@ -641,6 +709,7 @@ class GitPush:
             print(f"  ⚠️  Could not get summary: {e}\n")
     
     def _get_commit_message(self) -> Optional[str]:
+        """Get commit message from user"""
         message = input("Commit message: ").strip()
         
         if not message:
