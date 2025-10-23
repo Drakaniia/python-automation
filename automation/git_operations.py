@@ -1,6 +1,7 @@
 """
 Consolidated Git Operations Module
 Main orchestrator for all Git operations using modular components
+FIXED: Now properly detects current working directory for each operation
 """
 from pathlib import Path
 from automation.github.git_status import GitStatus
@@ -11,66 +12,78 @@ from automation.github.git_initializer import GitInitializer
 from automation.github.git_recover import GitRecover
 from automation.github.commit_summarizer import EnhancedCommitSummarizer
 from automation.menu import Menu, MenuItem
+from automation.core.git_client import get_git_client
 
 
 class GitOperations:
-    """Unified Git operations orchestrator"""
+    """Unified Git operations orchestrator with dynamic directory detection"""
     
     def __init__(self):
-        self.current_path = Path.cwd()
-        
-        # Initialize all modular components
-        self.status_handler = GitStatus()
-        self.log_handler = GitLog()
-        self.pull_handler = GitPull()
-        self.push_handler = GitPush()
-        self.initializer = GitInitializer()
-        self.recovery_handler = GitRecover()
-        self.commit_summarizer = EnhancedCommitSummarizer()
+        # Don't cache components - create fresh for each operation
+        pass
+    
+    def _get_current_path(self):
+        """Get current working directory (updates dynamically)"""
+        return Path.cwd()
+    
+    def _refresh_git_client(self):
+        """Get fresh GitClient for current directory"""
+        return get_git_client(working_dir=self._get_current_path())
     
     # ========== BASIC GIT OPERATIONS ==========
     
     def status(self):
         """Show git status"""
-        self.status_handler.show_status()
+        status_handler = GitStatus()
+        status_handler.show_status()
     
     def log(self):
         """Show git log"""
-        self.log_handler.show_log(limit=10)
+        log_handler = GitLog()
+        log_handler.show_log(limit=10)
     
     def pull(self):
         """Pull from remote"""
-        self.pull_handler.pull()
+        pull_handler = GitPull()
+        pull_handler.pull()
     
     def push(self):
         """Add, commit, and push changes"""
-        self.push_handler.push()
+        # Create fresh push handler for current directory
+        push_handler = GitPush()
+        push_handler.push()
     
     # ========== GIT INITIALIZATION ==========
     
     def initialize_and_push(self):
         """Initialize git repo and push to GitHub"""
-        self.initializer.initialize_and_push()
+        initializer = GitInitializer()
+        initializer.initialize_and_push()
     
     # ========== GIT RECOVERY ==========
     
     def show_recovery_menu(self):
         """Show the commit recovery interface"""
-        self.recovery_handler.show_recovery_menu(
-            commit_history_func=self.log_handler.get_commit_history,
-            commit_details_func=self.log_handler.get_commit_details,
-            verify_commit_func=self.log_handler.verify_commit_exists
+        log_handler = GitLog()
+        recovery_handler = GitRecover()
+        recovery_handler.show_recovery_menu(
+            commit_history_func=log_handler.get_commit_history,
+            commit_details_func=log_handler.get_commit_details,
+            verify_commit_func=log_handler.verify_commit_exists
         )
     
     # ========== COMMIT SUMMARIZER ==========
     
     def show_commit_summarizer_menu(self):
         """Show commit summarizer options"""
+        # Create fresh summarizer for current directory
+        commit_summarizer = EnhancedCommitSummarizer()
+        
         print("\n" + "="*70)
         print("🧠 COMMIT SUMMARIZER & CHANGELOG")
         print("="*70 + "\n")
         
-        if not self.commit_summarizer._is_git_repo():
+        if not commit_summarizer._is_git_repo():
             print("❌ Not a git repository")
             input("\nPress Enter to continue...")
             return
@@ -84,18 +97,18 @@ class GitOperations:
         choice = input("Your choice: ").strip()
         
         if choice == '1':
-            self._generate_changelog()
+            self._generate_changelog(commit_summarizer)
         elif choice == '2':
-            self._generate_commit_message()
+            self._generate_commit_message(commit_summarizer)
         elif choice == '3':
-            self._show_summarizer_config()
+            self._show_summarizer_config(commit_summarizer)
         elif choice == '4':
             return
         else:
             print("\n❌ Invalid choice")
             input("\nPress Enter to continue...")
     
-    def _generate_changelog(self):
+    def _generate_changelog(self, commit_summarizer):
         """Generate changelog entries"""
         print("\n" + "="*70)
         print("📝 GENERATE CHANGELOG")
@@ -111,7 +124,7 @@ class GitOperations:
                 return
             
             print(f"\n🔄 Processing {num_commits} commit(s)...\n")
-            success = self.commit_summarizer.auto_generate_after_push(num_commits)
+            success = commit_summarizer.auto_generate_after_push(num_commits)
             
             if success:
                 print("\n✅ Changelog generated successfully!")
@@ -126,7 +139,7 @@ class GitOperations:
         
         input("\nPress Enter to continue...")
     
-    def _generate_commit_message(self):
+    def _generate_commit_message(self, commit_summarizer):
         """Generate commit message from staged changes"""
         print("\n" + "="*70)
         print("💡 GENERATE COMMIT MESSAGE")
@@ -152,7 +165,7 @@ class GitOperations:
         
         print("\n🧠 Generating commit message...\n")
         
-        message = self.commit_summarizer.generate_commit_message_for_staged_changes()
+        message = commit_summarizer.generate_commit_message_for_staged_changes()
         
         print("="*70)
         print("📝 Generated Commit Message:")
@@ -179,27 +192,27 @@ class GitOperations:
         
         input("\nPress Enter to continue...")
     
-    def _show_summarizer_config(self):
+    def _show_summarizer_config(self, commit_summarizer):
         """Show summarizer configuration"""
         print("\n" + "="*70)
         print("⚙️  COMMIT SUMMARIZER CONFIGURATION")
         print("="*70 + "\n")
         
-        config = self.commit_summarizer.CONFIG
+        config = commit_summarizer.CONFIG
         
         print("Current Configuration:")
         for key, value in config.items():
             print(f"  • {key:<30} : {value}")
         
         print(f"\n🤖 AI Status:")
-        if self.commit_summarizer.ollama_available:
+        if commit_summarizer.ollama_available:
             print("  ✅ Ollama is available and enabled")
             print(f"  📦 Model: {config['ollama_model']}")
         else:
             print("  ⚠️  Ollama not available - using heuristic analysis")
             print("  💡 Install Ollama for AI-powered summaries")
         
-        print(f"\n📝 Processed Commits: {len(self.commit_summarizer.processed_commits)}")
+        print(f"\n📝 Processed Commits: {len(commit_summarizer.processed_commits)}")
         
         input("\nPress Enter to continue...")
 
