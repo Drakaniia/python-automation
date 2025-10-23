@@ -293,7 +293,7 @@ class GitPushRetry:
         except Exception as e:
             print(f"   ❌ Unexpected error: {str(e)}")
             return False, e
-    
+            
     def _analyze_error_and_decide(
         self,
         error: Optional[Exception],
@@ -309,64 +309,77 @@ class GitPushRetry:
         if not error:
             return False, 0
         
+        # Get error message from both message and stderr
         error_msg = str(error).lower()
+        if hasattr(error, 'stderr'):
+            error_msg = error_msg + " " + str(error.stderr).lower()
         
-        # Detect error types
-        is_hook_error = any(x in error_msg for x in [
-            'pre-push hook', 'hook', 'test', 'failed'
+        # Detect error types - ORDER MATTERS!
+        # Priority: Auth > Network > Hook > Diverged > Upstream
+        
+        # 1. Authentication errors (HIGHEST PRIORITY - don't retry)
+        is_auth = any(x in error_msg for x in [
+            'authentication', 'permission denied', 'credentials',
+            'authentication failed', 'could not authenticate'
         ])
         
+        # 2. Network errors (retry with backoff)
+        is_network = any(x in error_msg for x in [
+            'network', 'timeout', 'connection', 'could not resolve',
+            'connection refused', 'connection timed out'
+        ])
+        
+        # 3. Hook errors (retry immediately)
+        is_hook_error = any(x in error_msg for x in [
+            'pre-push hook', 'hook declined', 'hook failed'
+        ])
+        
+        # 4. Diverged/rejected (continue to force strategies)
         is_diverged = any(x in error_msg for x in [
             'diverged', 'non-fast-forward', 'rejected'
         ])
         
-        is_network = any(x in error_msg for x in [
-            'network', 'timeout', 'connection', 'could not resolve'
-        ])
-        
+        # 5. Upstream not set (continue to upstream strategies)
         is_no_upstream = any(x in error_msg for x in [
             'no upstream', 'no tracking', 'upstream branch'
         ])
         
-        is_auth = any(x in error_msg for x in [
-            'authentication', 'permission denied', 'credentials'
-        ])
-        
         # Log error analysis
         print(f"\n   🔍 Error Analysis:")
-        if is_hook_error:
-            print(f"      • Pre-push hooks blocking push")
-            print(f"      → Next: Retry with --no-verify")
         
-        if is_diverged:
-            print(f"      • Remote branch has diverged")
-            print(f"      → Next: Force push with confirmation")
-        
-        if is_network:
-            print(f"      • Network/connection issue")
-            print(f"      → Next: Retry with backoff")
-        
-        if is_no_upstream:
-            print(f"      • Upstream branch not set")
-            print(f"      → Next: Retry with --set-upstream")
-        
+        # Handle by priority
         if is_auth:
             print(f"      • Authentication failure")
             print(f"      → Action: Check credentials")
             return False, 0  # Don't retry auth errors
         
-        # Calculate wait time
-        wait_time = 0
-        if is_network and self.config.exponential_backoff:
-            # Exponential backoff for network errors
-            wait_time = min(2 ** attempt, 8)  # Max 8 seconds
-        elif is_network:
-            wait_time = self.config.retry_delay
+        if is_network:
+            print(f"      • Network/connection issue")
+            print(f"      → Next: Retry with backoff")
+            wait_time = 0
+            if self.config.exponential_backoff:
+                wait_time = min(2 ** attempt, 8)  # Max 8 seconds
+            else:
+                wait_time = self.config.retry_delay
+            should_continue = attempt < len(self.config.strategies)
+            return should_continue, wait_time
+        
+        if is_hook_error:
+            print(f"      • Pre-push hooks blocking push")
+            print(f"      → Next: Retry with --no-verify")
+        elif is_diverged:
+            print(f"      • Remote branch has diverged")
+            print(f"      → Next: Force push with confirmation")
+        elif is_no_upstream:
+            print(f"      • Upstream branch not set")
+            print(f"      → Next: Retry with --set-upstream")
+        else:
+            print(f"      • Unknown error type")
+            print(f"      → Next: Try next strategy")
         
         # Continue if not the last attempt
         should_continue = attempt < len(self.config.strategies)
-        
-        return should_continue, wait_time
+        return should_continue, 0
     
     def _confirm_destructive_operation(self, strategy: PushStrategy) -> bool:
         """
@@ -628,10 +641,6 @@ class GitPush:
             print(f"  ⚠️  Could not get summary: {e}\n")
     
     def _get_commit_message(self) -> Optional[str]:
-        """Get commit message from user"""
-        print("📝 Enter commit message:")
-        print("   (Tip: Use format like '🐛 Fix: issue description')\n")
-        
         message = input("Commit message: ").strip()
         
         if not message:
