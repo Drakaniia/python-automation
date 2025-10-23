@@ -55,9 +55,9 @@ class PushConfig:
         # Define progressive strategies
         self.strategies = [
             PushStrategy(
-                "normal-no-verify",  # Changed name
-                ["--no-verify"],     # Always skip hooks
-                "Standard push (skip hooks)",
+                "normal",
+                [],
+                "Standard push",
                 requires_confirmation=False
             ),
             PushStrategy(
