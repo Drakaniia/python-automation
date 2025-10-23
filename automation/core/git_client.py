@@ -73,15 +73,25 @@ class GitClient:
         
         result = self._run_command(cmd, check=True)
         return result.stdout.strip()
-    
+
     def has_uncommitted_changes(self) -> bool:
-        """Check if there are uncommitted changes"""
+        """
+        Check if there are uncommitted changes or untracked files
+        
+        This includes:
+        - Modified tracked files
+        - Deleted tracked files
+        - Staged changes
+        - Untracked files (new files not yet added)
+        """
         try:
             status = self.status(porcelain=True)
-            return bool(status)
+            # Any non-empty output from git status --porcelain means there are changes
+            # This includes both tracked changes AND untracked files (??)
+            return bool(status and status.strip())
         except Exception:
             return False
-    
+
     # ========== Add/Stage Operations ==========
     
     def add(self, files: Optional[List[str]] = None) -> bool:
