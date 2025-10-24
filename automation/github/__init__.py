@@ -16,5 +16,4 @@ __all__ = [
     'GitPush',
     'GitInitializer',
     'GitRecover',
-    'CommitSummarizer'
 ]

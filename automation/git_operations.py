@@ -10,9 +10,9 @@ from automation.github.git_pull import GitPull
 from automation.github.git_push import GitPush
 from automation.github.git_initializer import GitInitializer
 from automation.github.git_recover import GitRecover
-from automation.github.commit_summarizer import EnhancedCommitSummarizer
 from automation.menu import Menu, MenuItem
 from automation.core.git_client import get_git_client
+from automation.generate_changelog import ChangelogGenerator
 
 
 class GitOperations:
@@ -71,42 +71,6 @@ class GitOperations:
             commit_details_func=log_handler.get_commit_details,
             verify_commit_func=log_handler.verify_commit_exists
         )
-    
-    # ========== COMMIT SUMMARIZER ==========
-    
-    def show_commit_summarizer_menu(self):
-        """Show commit summarizer options"""
-        # Create fresh summarizer for current directory
-        commit_summarizer = EnhancedCommitSummarizer()
-        
-        print("\n" + "="*70)
-        print("🧠 COMMIT SUMMARIZER & CHANGELOG")
-        print("="*70 + "\n")
-        
-        if not commit_summarizer._is_git_repo():
-            print("❌ Not a git repository")
-            input("\nPress Enter to continue...")
-            return
-        
-        print("Available Options:")
-        print("  1. Generate changelog for recent commits")
-        print("  2. Generate commit message from staged changes")
-        print("  3. View summarizer configuration")
-        print("  4. Back to menu\n")
-        
-        choice = input("Your choice: ").strip()
-        
-        if choice == '1':
-            self._generate_changelog(commit_summarizer)
-        elif choice == '2':
-            self._generate_commit_message(commit_summarizer)
-        elif choice == '3':
-            self._show_summarizer_config(commit_summarizer)
-        elif choice == '4':
-            return
-        else:
-            print("\n❌ Invalid choice")
-            input("\nPress Enter to continue...")
     
     def _generate_changelog(self, commit_summarizer):
         """Generate changelog entries"""
@@ -216,6 +180,95 @@ class GitOperations:
         
         input("\nPress Enter to continue...")
 
+        
+    def show_changelog_generator_menu(self):
+        """Show changelog generator options"""
+        # Create fresh generator for current directory
+        changelog_gen = ChangelogGenerator()
+        
+        print("\n" + "="*70)
+        print("📝 CHANGELOG GENERATOR")
+        print("="*70 + "\n")
+        
+        if not changelog_gen._is_git_repo():
+            print("❌ Not a git repository")
+            input("\nPress Enter to continue...")
+            return
+        
+        print("Generate detailed changelog entries from recent commits.")
+        print("\nOptions:")
+        print("  1. Generate changelog for recent commits")
+        print("  2. View generator configuration")
+        print("  3. Back to menu\n")
+        
+        choice = input("Your choice: ").strip()
+        
+        if choice == '1':
+            self._generate_changelog_interactive(changelog_gen)
+        elif choice == '2':
+            self._show_generator_config(changelog_gen)
+        elif choice == '3':
+            return
+        else:
+            print("\n❌ Invalid choice")
+            input("\nPress Enter to continue...")
+    
+    def _generate_changelog_interactive(self, changelog_gen):
+        """Interactive changelog generation"""
+        print("\n" + "="*70)
+        print("📝 GENERATE CHANGELOG")
+        print("="*70 + "\n")
+        
+        try:
+            num_commits = input("How many recent commits to process? (default: 1): ").strip()
+            num_commits = int(num_commits) if num_commits else 1
+            
+            if num_commits < 1 or num_commits > 50:
+                print("❌ Please enter a number between 1 and 50")
+                input("\nPress Enter to continue...")
+                return
+            
+            print(f"\n🔄 Processing {num_commits} commit(s)...\n")
+            success = changelog_gen.generate_changelog(num_commits)
+            
+            if success:
+                print("\n✅ Changelog generated successfully!")
+                print(f"📄 Check CHANGELOG.md in your repository")
+            else:
+                print("\n⚠️  No new commits to process or error occurred")
+        
+        except ValueError:
+            print("\n❌ Invalid number")
+        except Exception as e:
+            print(f"\n❌ Error: {e}")
+        
+        input("\nPress Enter to continue...")
+    
+    def _show_generator_config(self, changelog_gen):
+        """Show generator configuration"""
+        print("\n" + "="*70)
+        print("⚙️  CHANGELOG GENERATOR CONFIGURATION")
+        print("="*70 + "\n")
+        
+        config = changelog_gen.CONFIG
+        
+        print("Current Configuration:")
+        for key, value in config.items():
+            print(f"  • {key:<30} : {value}")
+        
+        print(f"\n🤖 AI Status:")
+        if changelog_gen.ollama_available:
+            print("  ✅ Ollama is available and enabled")
+            print(f"  📦 Model: {config['ollama_model']}")
+        else:
+            print("  ⚠️  Ollama not available - using heuristic analysis")
+            print("  💡 Install Ollama for AI-powered summaries")
+        
+        print(f"\n📝 Processed Commits: {len(changelog_gen.processed_commits)}")
+        
+        input("\nPress Enter to continue...")
+
+
 
 class GitMenu(Menu):
     """Unified menu for all Git operations"""
@@ -233,6 +286,6 @@ class GitMenu(Menu):
             MenuItem("Push (Add, Commit & Push)", lambda: self.git_ops.push()),
             MenuItem("Initialize Git & Push to GitHub", lambda: self.git_ops.initialize_and_push()),
             MenuItem("Git Recovery (Revert to Previous Commit)", lambda: self.git_ops.show_recovery_menu()),
-            MenuItem("Commit Summarizer & Changelog 🧠", lambda: self.git_ops.show_commit_summarizer_menu()),
+            MenuItem("Generate Changelog", lambda: self.git_ops.show_changelog_generator_menu()),  # UPDATED
             MenuItem("Back to Main Menu", lambda: "exit")
         ]
