@@ -1,7 +1,7 @@
 """
 automation/github/git_push.py
-Enhanced Git push with comprehensive retry strategies and automatic error recovery
-FIXED: Properly detects ALL changes including untracked files
+Enhanced Git push with comprehensive retry strategies and automatic changelog generation
+UPDATED: Automatically generates changelog after successful push
 """
 from pathlib import Path
 from typing import Optional, List, Tuple
@@ -49,8 +49,9 @@ class PushConfig:
         self.network_timeout = 30  # seconds
         self.enable_auto_hooks_bypass = True
         self.enable_auto_upstream = True
-        self.enable_force_push = True  # Allow force push with confirmation
+        self.enable_force_push = True
         self.exponential_backoff = True
+        self.auto_generate_changelog = True  # NEW: Enable auto-changelog
         
         # Define progressive strategies
         self.strategies = [
@@ -137,15 +138,14 @@ class ProgressIndicator:
 
 class GitPushRetry:
     """
-    Enhanced Git push with automatic retry and error recovery
+    Enhanced Git push with automatic retry and changelog generation
     
     Features:
-    - Progressive retry strategies (normal → upstream → no-verify → force)
+    - Progressive retry strategies
     - Automatic hook bypass detection
     - Smart force push with user confirmation
     - Network retry with exponential backoff
-    - Comprehensive error analysis
-    - User-friendly progress indicators
+    - Automatic changelog generation after successful push
     """
     
     def __init__(self, config: Optional[PushConfig] = None):
@@ -162,7 +162,7 @@ class GitPushRetry:
         branch: Optional[str] = None
     ) -> bool:
         """
-        Execute push with comprehensive retry strategies
+        Execute push with comprehensive retry strategies and auto-changelog
         
         Args:
             commit_message: Commit message (if staging changes)
@@ -194,12 +194,42 @@ class GitPushRetry:
                 return False
         
         # Execute push with progressive strategies
-        return self._execute_push_with_strategies(remote, branch)
+        push_success = self._execute_push_with_strategies(remote, branch)
+        
+        # Generate changelog after successful push
+        if push_success and self.config.auto_generate_changelog:
+            self._auto_generate_changelog()
+        
+        return push_success
+    
+    def _auto_generate_changelog(self):
+        """Automatically generate changelog for the latest commit"""
+        try:
+            print("\n" + "="*70)
+            print("📝 GENERATING CHANGELOG")
+            print("="*70 + "\n")
+            
+            # Import here to avoid circular dependency
+            from automation.changelog_generator import ChangelogGenerator
+            
+            changelog_gen = ChangelogGenerator()
+            
+            # Generate changelog for the most recent commit
+            print("🔄 Updating changelog with latest commit...")
+            success = changelog_gen.generate_changelog(num_commits=1)
+            
+            if success:
+                print(f"✅ Changelog updated successfully!")
+                print(f"📄 File: {changelog_gen.CONFIG['changelog_file']}\n")
+            else:
+                print("ℹ️  Changelog already up to date\n")
+        
+        except Exception as e:
+            print(f"⚠️  Could not generate changelog: {e}")
+            print("   (Push was successful, but changelog generation failed)\n")
     
     def _execute_push_with_strategies(self, remote: str, branch: str) -> bool:
-        """
-        Try push with progressive strategies until success
-        """
+        """Try push with progressive strategies until success"""
         print(f"📤 Pushing to {remote}/{branch}")
         print(f"🔄 Max attempts: {len(self.config.strategies)}\n")
         
@@ -257,12 +287,7 @@ class GitPushRetry:
         remote: str,
         branch: str
     ) -> Tuple[bool, Optional[Exception]]:
-        """
-        Try a specific push strategy
-        
-        Returns:
-            (success: bool, error: Optional[Exception])
-        """
+        """Try a specific push strategy"""
         try:
             # Build git push command
             cmd = ['git', 'push']
@@ -293,72 +318,56 @@ class GitPushRetry:
         except Exception as e:
             print(f"   ❌ Unexpected error: {str(e)}")
             return False, e
-            
+    
     def _analyze_error_and_decide(
         self,
         error: Optional[Exception],
         attempt: int,
         strategy: PushStrategy
     ) -> Tuple[bool, int]:
-        """
-        Analyze error and decide whether to continue
-        
-        Returns:
-            (should_continue: bool, wait_seconds: int)
-        """
+        """Analyze error and decide whether to continue"""
         if not error:
             return False, 0
         
-        # Get error message from both message and stderr
         error_msg = str(error).lower()
         if hasattr(error, 'stderr'):
             error_msg = error_msg + " " + str(error.stderr).lower()
         
-        # Detect error types - ORDER MATTERS!
-        # Priority: Auth > Network > Hook > Diverged > Upstream
-        
-        # 1. Authentication errors (HIGHEST PRIORITY - don't retry)
         is_auth = any(x in error_msg for x in [
             'authentication', 'permission denied', 'credentials',
             'authentication failed', 'could not authenticate'
         ])
         
-        # 2. Network errors (retry with backoff)
         is_network = any(x in error_msg for x in [
             'network', 'timeout', 'connection', 'could not resolve',
             'connection refused', 'connection timed out'
         ])
         
-        # 3. Hook errors (retry immediately)
         is_hook_error = any(x in error_msg for x in [
             'pre-push hook', 'hook declined', 'hook failed'
         ])
         
-        # 4. Diverged/rejected (continue to force strategies)
         is_diverged = any(x in error_msg for x in [
             'diverged', 'non-fast-forward', 'rejected'
         ])
         
-        # 5. Upstream not set (continue to upstream strategies)
         is_no_upstream = any(x in error_msg for x in [
             'no upstream', 'no tracking', 'upstream branch'
         ])
         
-        # Log error analysis
         print(f"\n   🔍 Error Analysis:")
         
-        # Handle by priority
         if is_auth:
             print(f"      • Authentication failure")
             print(f"      → Action: Check credentials")
-            return False, 0  # Don't retry auth errors
+            return False, 0
         
         if is_network:
             print(f"      • Network/connection issue")
             print(f"      → Next: Retry with backoff")
             wait_time = 0
             if self.config.exponential_backoff:
-                wait_time = min(2 ** attempt, 8)  # Max 8 seconds
+                wait_time = min(2 ** attempt, 8)
             else:
                 wait_time = self.config.retry_delay
             should_continue = attempt < len(self.config.strategies)
@@ -377,19 +386,15 @@ class GitPushRetry:
             print(f"      • Unknown error type")
             print(f"      → Next: Try next strategy")
         
-        # Continue if not the last attempt
         should_continue = attempt < len(self.config.strategies)
         return should_continue, 0
     
     def _confirm_destructive_operation(self, strategy: PushStrategy) -> bool:
-        """
-        Get user confirmation for destructive operations
-        """
+        """Get user confirmation for destructive operations"""
         print(f"\n⚠️  WARNING: {strategy.name.upper()} is a destructive operation!")
         print(f"   This will overwrite remote history.")
         print(f"   Description: {strategy.description}\n")
         
-        # Show what will be overwritten
         try:
             self._show_divergence_info()
         except Exception:
@@ -459,9 +464,7 @@ class GitPushRetry:
     def _has_changes(self) -> bool:
         """Check if there are uncommitted changes or untracked files"""
         try:
-            # Get porcelain status which includes all changes
             status = self.git.status(porcelain=True)
-            # Any non-empty output means there are changes
             return bool(status and status.strip())
         except Exception:
             return False
@@ -543,22 +546,17 @@ class GitPushRetry:
         if not stderr:
             return "Unknown error"
         
-        # Take first meaningful line
         lines = [l.strip() for l in stderr.split('\n') if l.strip()]
-        
-        # Find error lines (starting with ! or error:)
         error_lines = [l for l in lines if l.startswith('!') or 'error' in l.lower()]
         
         if error_lines:
-            return error_lines[0][:100]  # Truncate long messages
+            return error_lines[0][:100]
         
         return lines[0][:100] if lines else "Unknown error"
 
 
 class GitPush:
-    """
-    Backward-compatible GitPush class with enhanced retry
-    """
+    """Backward-compatible GitPush class with enhanced retry and auto-changelog"""
     
     def __init__(self):
         self.current_dir = Path.cwd()
@@ -568,16 +566,16 @@ class GitPush:
     @handle_errors()
     def push(self, dry_run: bool = False):
         """
-        Add, commit, and push changes with automatic retry
+        Add, commit, and push changes with automatic retry and changelog generation
         
         Args:
             dry_run: Show what would be done without executing
         """
         print("\n" + "="*70)
-        print("⬆️  GIT PUSH (With Auto-Retry)")
+        print("⬆️  GIT PUSH (With Auto-Retry & Auto-Changelog)")
         print("="*70 + "\n")
         
-        # Check for changes - INCLUDING UNTRACKED FILES
+        # Check for changes
         if not self._has_changes():
             print("ℹ️  No changes detected. Working directory is clean.")
             print("\n💡 This includes:")
@@ -603,37 +601,24 @@ class GitPush:
             input("\nPress Enter to continue...")
             return
         
-        # Execute push with retry
+        # Execute push with retry (changelog will be auto-generated)
         success = self.push_retry.push_with_retry(commit_message=commit_message)
         
         if success:
             print("🎉 Push completed successfully!")
+            print("📝 Changelog has been automatically updated!")
         else:
             print("⚠️  Push failed after all retry attempts")
         
         input("\nPress Enter to continue...")
     
     def _has_changes(self) -> bool:
-        """
-        Check if there are any changes including untracked files
-        
-        Returns True if any of these exist:
-        - Modified tracked files
-        - Deleted tracked files  
-        - Staged changes
-        - Untracked files (new files not yet added)
-        """
+        """Check if there are any changes including untracked files"""
         try:
-            # Get full porcelain status
             status = self.git.status(porcelain=True)
-            
-            # Any non-empty status means there are changes
-            # This includes ?? (untracked), M (modified), D (deleted), etc.
             has_changes = bool(status and status.strip())
             
-            # Debug output (optional - remove in production)
             if not has_changes:
-                # Double-check with a direct git command
                 result = subprocess.run(
                     ['git', 'status', '--porcelain'],
                     capture_output=True,
@@ -641,8 +626,6 @@ class GitPush:
                     cwd=self.current_dir
                 )
                 if result.stdout.strip():
-                    print(f"⚠️  DEBUG: Direct git status shows changes:")
-                    print(f"   {result.stdout[:200]}")
                     return True
             
             return has_changes
@@ -662,16 +645,13 @@ class GitPush:
                 print("  (none)")
                 return
             
-            # Parse porcelain output
             lines = [l for l in status.split('\n') if l.strip()]
             
-            # Count changes by type
             untracked = [l for l in lines if l.startswith('??')]
             new_files = [l for l in lines if l.startswith('A ')]
             modified = [l for l in lines if ' M' in l[:2] or l.startswith('M')]
             deleted = [l for l in lines if ' D' in l[:2] or l.startswith('D')]
             
-            # Show counts
             if untracked:
                 print(f"  📄 Untracked files: {len(untracked)}")
             if new_files:
@@ -681,14 +661,12 @@ class GitPush:
             if deleted:
                 print(f"  ➖ Deleted: {len(deleted)}")
             
-            # Show first few files with status
             if len(lines) > 0:
                 print("\n  Files:")
-                for line in lines[:15]:  # Show first 15 files
+                for line in lines[:15]:
                     status_code = line[:2]
                     filename = line[3:].strip() if len(line) > 3 else line[2:].strip()
                     
-                    # Interpret status code
                     if status_code == '??':
                         print(f"    ?? (untracked) {filename}")
                     elif status_code == 'A ':
@@ -733,13 +711,13 @@ def push():
 
 
 if __name__ == "__main__":
-    print("🧪 Testing Enhanced Git Push\n")
+    print("🧪 Testing Enhanced Git Push with Auto-Changelog\n")
     
-    # Demo configuration
     config = PushConfig()
     print("Configuration:")
     print(f"  • Max retries: {config.max_retries}")
     print(f"  • Retry delay: {config.retry_delay}s")
+    print(f"  • Auto-changelog: {config.auto_generate_changelog}")
     print(f"  • Strategies: {len(config.strategies)}")
     print("\nStrategies:")
     for i, s in enumerate(config.strategies, 1):
@@ -750,3 +728,4 @@ if __name__ == "__main__":
     print("  from automation.github.git_push import GitPush")
     print("  pusher = GitPush()")
     print("  pusher.push()")
+    print("\n✨ Changelog will be automatically generated after successful push!")
