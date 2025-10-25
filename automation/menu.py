@@ -1,6 +1,5 @@
 """
-Menu System Module - Smooth Navigation Without Blinking
-Uses cursor positioning to update only the changed menu items
+Menu System Module - Updated with Dev Mode
 """
 from abc import ABC, abstractmethod
 import os
@@ -46,7 +45,7 @@ class Menu(ABC):
         self.title = title
         self.items = []
         self._items_initialized = False
-        self._menu_start_line = 0  # Track where menu items start
+        self._menu_start_line = 0
         self.setup_items()
         self._items_initialized = True
 
@@ -85,7 +84,6 @@ class Menu(ABC):
 
         if is_selected:
             full_line = f"  ► {line_text}"
-            # Cyan background with padding to cover full width
             print(f"\033[1;46m{full_line.ljust(70)}\033[0m")
         else:
             full_line = f"    {line_text}"
@@ -93,16 +91,10 @@ class Menu(ABC):
 
     def _update_item(self, index, item, is_selected):
         """Update a single menu item without clearing screen"""
-        # Calculate line number (menu_start_line + index)
         line_number = self._menu_start_line + index
-
-        # Move cursor to that line
-        sys.stdout.write(f'\033[{line_number + 1};1H')  # +1 because terminal lines are 1-indexed
-
-        # Clear the line
+        sys.stdout.write(f'\033[{line_number + 1};1H')
         sys.stdout.write('\033[2K')
 
-        # Print the updated item
         line_text = f"{index + 1}. {item.label}"
 
         if is_selected:
@@ -124,11 +116,7 @@ class Menu(ABC):
     def _arrow_navigation(self):
         """Navigate with arrow keys - smooth updates only"""
         selected_idx = 0
-
-        # Initial display (full refresh)
         self.display(selected_idx, initial=True)
-
-        # Hide cursor for smooth navigation
         sys.stdout.write(self.HIDE_CURSOR)
         sys.stdout.flush()
 
@@ -142,14 +130,14 @@ class Menu(ABC):
                     should_exit = False
                     should_select = False
 
-                    if HAS_MSVCRT:  # Windows handling
+                    if HAS_MSVCRT:
                         if key in ('\xe0', '\x00'):
                             arrow = self._getch()
-                            if arrow == 'H':  # Up arrow
+                            if arrow == 'H':
                                 new_idx = (selected_idx - 1) % len(self.items)
-                            elif arrow == 'P':  # Down arrow
+                            elif arrow == 'P':
                                 new_idx = (selected_idx + 1) % len(self.items)
-                        elif key == '\r':  # Enter key
+                        elif key == '\r':
                             should_select = True
                         elif key.isdigit():
                             num = int(key)
@@ -157,21 +145,21 @@ class Menu(ABC):
                                 should_exit = True
                                 selected_idx = num - 1
                                 should_select = True
-                        elif key == '\x03':  # Ctrl+C
+                        elif key == '\x03':
                             should_exit = True
                             selected_idx = len(self.items) - 1
                             should_select = True
 
-                    else:  # Unix/Linux/Mac handling
-                        if key == '\x1b':  # ESC sequence
+                    else:
+                        if key == '\x1b':
                             next_key = self._getch()
                             if next_key == '[':
                                 arrow = self._getch()
-                                if arrow == 'A':  # Up arrow
+                                if arrow == 'A':
                                     new_idx = (selected_idx - 1) % len(self.items)
-                                elif arrow == 'B':  # Down arrow
+                                elif arrow == 'B':
                                     new_idx = (selected_idx + 1) % len(self.items)
-                        elif key in ['\r', '\n']:  # Enter key
+                        elif key in ['\r', '\n']:
                             should_select = True
                         elif key.isdigit():
                             num = int(key)
@@ -179,23 +167,17 @@ class Menu(ABC):
                                 should_exit = True
                                 selected_idx = num - 1
                                 should_select = True
-                        elif key in ['\x03', '\x04']:  # Ctrl+C or Ctrl+D
+                        elif key in ['\x03', '\x04']:
                             should_exit = True
                             selected_idx = len(self.items) - 1
                             should_select = True
 
-                    # If selection changed, update only the affected lines
                     if new_idx != old_idx:
                         selected_idx = new_idx
-
-                        # Deselect old item
                         self._update_item(old_idx, self.items[old_idx], is_selected=False)
-
-                        # Select new item
                         self._update_item(new_idx, self.items[new_idx], is_selected=True)
 
                     if should_select:
-                        # Show cursor before returning
                         sys.stdout.write(self.SHOW_CURSOR)
                         sys.stdout.flush()
                         return selected_idx + 1
@@ -209,7 +191,6 @@ class Menu(ABC):
                     continue
 
         finally:
-            # Always restore cursor visibility
             sys.stdout.write(self.SHOW_CURSOR)
             sys.stdout.flush()
 
@@ -232,13 +213,13 @@ class Menu(ABC):
 
     def _getch(self):
         """Get a single character from stdin"""
-        if HAS_MSVCRT:  # Windows
+        if HAS_MSVCRT:
             char = msvcrt.getch()
             try:
                 return char.decode('utf-8')
             except:
                 return chr(ord(char))
-        elif HAS_TERMIOS:  # Unix/Linux/Mac
+        elif HAS_TERMIOS:
             fd = sys.stdin.fileno()
             old_settings = termios.tcgetattr(fd)
             try:
@@ -254,13 +235,8 @@ class Menu(ABC):
         """Run the menu loop"""
         while True:
             choice = self.get_choice_with_arrows()
-
-            # Clear screen before executing action
             self.clear_screen()
-
-            # Execute the selected action
             result = self.items[choice - 1].action()
-
             if result == "exit":
                 break
 
@@ -271,13 +247,14 @@ class Menu(ABC):
 
 
 class MainMenu(Menu):
-    """Main menu for the automation system"""
+    """Main menu for the automation system - Updated with Dev Mode"""
 
     def __init__(self):
         # Initialize dependencies ONCE before calling parent __init__
         self._git_menu = None
         self._structure_viewer = None
         self._folder_nav = None
+        self._dev_mode_menu = None
 
         super().__init__("🚀 Python Automation System - Main Menu")
 
@@ -291,6 +268,7 @@ class MainMenu(Menu):
         from automation.git_operations import GitMenu
         from automation.structure_viewer import StructureViewer
         from automation.folder_navigator import FolderNavigator
+        from automation.dev_mode import DevModeMenu
 
         # Create instances once and reuse them
         if self._git_menu is None:
@@ -299,12 +277,15 @@ class MainMenu(Menu):
             self._structure_viewer = StructureViewer()
         if self._folder_nav is None:
             self._folder_nav = FolderNavigator()
+        if self._dev_mode_menu is None:
+            self._dev_mode_menu = DevModeMenu()
 
         # Create menu items with bound methods
         self.items = [
             MenuItem("GitHub Operations", self._run_git_operations),
             MenuItem("Show Project Structure", self._show_structure),
             MenuItem("Navigate Folders", self._navigate_folders),
+            MenuItem("Dev Mode (Web Dev Automation)", self._run_dev_mode),
             MenuItem("Exit", self._exit_program)
         ]
     
@@ -321,6 +302,11 @@ class MainMenu(Menu):
     def _navigate_folders(self):
         """Navigate folders"""
         self._folder_nav.navigate()
+        return None
+    
+    def _run_dev_mode(self):
+        """Run Dev Mode menu"""
+        self._dev_mode_menu.run()
         return None
     
     def _exit_program(self):
