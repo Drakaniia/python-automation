@@ -1,8 +1,7 @@
 """
 Consolidated Git Operations Module
 Main orchestrator for all Git operations using modular components
-FIXED: Now properly detects current working directory for each operation
-FIXED: Uses correct EnhancedCommitSummarizer instead of ChangelogGenerator
+UPDATED: Now uses ChangelogGenerator instead of CommitSummarizer
 """
 from pathlib import Path
 from automation.github.git_status import GitStatus
@@ -13,7 +12,7 @@ from automation.github.git_initializer import GitInitializer
 from automation.github.git_recover import GitRecover
 from automation.menu import Menu, MenuItem
 from automation.core.git_client import get_git_client
-from automation.github.commit_summarizer import EnhancedCommitSummarizer
+from automation.github.changelog_generator import ChangelogGenerator
 
 
 class GitOperations:
@@ -76,7 +75,7 @@ class GitOperations:
     def show_changelog_generator_menu(self):
         """Show changelog generator options"""
         # Create fresh generator for current directory
-        changelog_gen = EnhancedCommitSummarizer()
+        changelog_gen = ChangelogGenerator()
         
         print("\n" + "="*70)
         print("📝 CHANGELOG GENERATOR")
@@ -87,19 +86,25 @@ class GitOperations:
             input("\nPress Enter to continue...")
             return
         
-        print("Generate detailed changelog entries from recent commits.")
+        print("Generate clean changelog entries from recent commits.")
         print("\nOptions:")
         print("  1. Generate changelog for recent commits")
-        print("  2. View generator configuration")
-        print("  3. Back to menu\n")
+        print("  2. Show unprocessed commits")
+        print("  3. Reset processed commits cache")
+        print("  4. View generator configuration")
+        print("  5. Back to menu\n")
         
         choice = input("Your choice: ").strip()
         
         if choice == '1':
             self._generate_changelog_interactive(changelog_gen)
         elif choice == '2':
-            self._show_generator_config(changelog_gen)
+            self._show_unprocessed_commits(changelog_gen)
         elif choice == '3':
+            self._reset_changelog_cache(changelog_gen)
+        elif choice == '4':
+            self._show_generator_config(changelog_gen)
+        elif choice == '5':
             return
         else:
             print("\n❌ Invalid choice")
@@ -115,17 +120,17 @@ class GitOperations:
             num_commits = input("How many recent commits to process? (default: 1): ").strip()
             num_commits = int(num_commits) if num_commits else 1
             
-            if num_commits < 1 or num_commits > 50:
-                print("❌ Please enter a number between 1 and 50")
+            if num_commits < 1 or num_commits > 100:
+                print("❌ Please enter a number between 1 and 100")
                 input("\nPress Enter to continue...")
                 return
             
             print(f"\n🔄 Processing {num_commits} commit(s)...\n")
-            success = changelog_gen.auto_generate_after_push(num_commits)
+            success = changelog_gen.generate_changelog(num_commits)
             
             if success:
                 print("\n✅ Changelog generated successfully!")
-                print(f"📄 Check CHANGELOG.md in your repository")
+                print(f"📄 Check {changelog_gen.CONFIG['changelog_file']} in your repository")
             else:
                 print("\n⚠️  No new commits to process or error occurred")
         
@@ -133,6 +138,30 @@ class GitOperations:
             print("\n❌ Invalid number")
         except Exception as e:
             print(f"\n❌ Error: {e}")
+        
+        input("\nPress Enter to continue...")
+    
+    def _show_unprocessed_commits(self, changelog_gen):
+        """Show unprocessed commits"""
+        changelog_gen.show_unprocessed_commits(limit=20)
+        input("Press Enter to continue...")
+    
+    def _reset_changelog_cache(self, changelog_gen):
+        """Reset the processed commits cache"""
+        print("\n" + "="*70)
+        print("⚠️  RESET CHANGELOG CACHE")
+        print("="*70 + "\n")
+        
+        print("This will clear the record of processed commits.")
+        print("All commits will be treated as unprocessed.\n")
+        
+        confirm = input("Are you sure? (yes/no): ").strip().lower()
+        
+        if confirm == 'yes':
+            changelog_gen.reset_processed_commits()
+            print()
+        else:
+            print("\n❌ Operation cancelled")
         
         input("\nPress Enter to continue...")
     
@@ -146,17 +175,17 @@ class GitOperations:
         
         print("Current Configuration:")
         for key, value in config.items():
-            print(f"  • {key:<30} : {value}")
-        
-        print(f"\n🤖 AI Status:")
-        if changelog_gen.ollama_available:
-            print("  ✅ Ollama is available and enabled")
-            print(f"  📦 Model: {config['ollama_model']}")
-        else:
-            print("  ⚠️  Ollama not available - using heuristic analysis")
-            print("  💡 Install Ollama for AI-powered summaries")
+            print(f"  • {key:<25} : {value}")
         
         print(f"\n📝 Processed Commits: {len(changelog_gen.processed_commits)}")
+        
+        print("\n📋 Supported Commit Types:")
+        for commit_type, type_config in changelog_gen.COMMIT_TYPES.items():
+            print(f"  {type_config['emoji']} {commit_type:<12} - {type_config['label']}")
+            keywords = ', '.join(type_config['keywords'][:3])
+            if len(type_config['keywords']) > 3:
+                keywords += '...'
+            print(f"     Keywords: {keywords}")
         
         input("\nPress Enter to continue...")
 
