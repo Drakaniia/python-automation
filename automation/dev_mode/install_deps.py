@@ -4,7 +4,7 @@ Install Node.js dependencies (npm install)
 """
 import subprocess
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Any
 from automation.dev_mode._base import DevModeCommand
 
 
@@ -127,36 +127,7 @@ class InstallDepsCommand(DevModeCommand):
                 capture_output=not interactive
             )
             
-            print(f"\n✅ Package '{package}' installed successfully!")
-        
-        except subprocess.CalledProcessError as e:
-            if interactive:
-                print(f"\n❌ Installation failed with exit code {e.returncode}")
-            else:
-                raise
-        except Exception as e:
-            if interactive:
-                print(f"\n❌ Error: {e}")
-            else:
-                raise
-    
-    def _detect_package_manager(self) -> str:
-        """Detect which package manager to use based on lock files"""
-        cwd = Path.cwd()
-        
-        if (cwd / 'pnpm-lock.yaml').exists():
-            return 'pnpm'
-        elif (cwd / 'yarn.lock').exists():
-            return 'yarn'
-        elif (cwd / 'package-lock.json').exists():
-            return 'npm'
-        else:
-            return 'npm'  # Default
-
-
-# Export command instance
-COMMAND = InstallDepsCommand()
-print("\n✅ Dependencies installed successfully!")
+            print("\n✅ Dependencies installed successfully!")
         
         except subprocess.CalledProcessError as e:
             if interactive:
@@ -207,3 +178,33 @@ print("\n✅ Dependencies installed successfully!")
                 check=True,
                 capture_output=not interactive
             )
+            
+            print(f"\n✅ Package '{package}' installed successfully!")
+        
+        except subprocess.CalledProcessError as e:
+            if interactive:
+                print(f"\n❌ Installation failed with exit code {e.returncode}")
+            else:
+                raise
+        except Exception as e:
+            if interactive:
+                print(f"\n❌ Error: {e}")
+            else:
+                raise
+    
+    def _detect_package_manager(self) -> str:
+        """Detect which package manager to use based on lock files"""
+        cwd = Path.cwd()
+        
+        if (cwd / 'pnpm-lock.yaml').exists():
+            return 'pnpm'
+        elif (cwd / 'yarn.lock').exists():
+            return 'yarn'
+        elif (cwd / 'package-lock.json').exists():
+            return 'npm'
+        else:
+            return 'npm'  # Default
+
+
+# Export command instance
+COMMAND = InstallDepsCommand()
