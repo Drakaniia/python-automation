@@ -2,6 +2,7 @@
 Consolidated Git Operations Module
 Main orchestrator for all Git operations using modular components
 FIXED: Now properly detects current working directory for each operation
+FIXED: Uses correct EnhancedCommitSummarizer instead of ChangelogGenerator
 """
 from pathlib import Path
 from automation.github.git_status import GitStatus
@@ -12,7 +13,7 @@ from automation.github.git_initializer import GitInitializer
 from automation.github.git_recover import GitRecover
 from automation.menu import Menu, MenuItem
 from automation.core.git_client import get_git_client
-from automation.generate_changelog import ChangelogGenerator
+from automation.github.commit_summarizer import EnhancedCommitSummarizer
 
 
 class GitOperations:
@@ -72,119 +73,10 @@ class GitOperations:
             verify_commit_func=log_handler.verify_commit_exists
         )
     
-    def _generate_changelog(self, commit_summarizer):
-        """Generate changelog entries"""
-        print("\n" + "="*70)
-        print("📝 GENERATE CHANGELOG")
-        print("="*70 + "\n")
-        
-        try:
-            num_commits = input("How many recent commits to process? (default: 1): ").strip()
-            num_commits = int(num_commits) if num_commits else 1
-            
-            if num_commits < 1 or num_commits > 50:
-                print("❌ Please enter a number between 1 and 50")
-                input("\nPress Enter to continue...")
-                return
-            
-            print(f"\n🔄 Processing {num_commits} commit(s)...\n")
-            success = commit_summarizer.auto_generate_after_push(num_commits)
-            
-            if success:
-                print("\n✅ Changelog generated successfully!")
-                print(f"📄 Check CHANGELOG.md in your repository")
-            else:
-                print("\n⚠️  No new commits to process or error occurred")
-        
-        except ValueError:
-            print("\n❌ Invalid number")
-        except Exception as e:
-            print(f"\n❌ Error: {e}")
-        
-        input("\nPress Enter to continue...")
-    
-    def _generate_commit_message(self, commit_summarizer):
-        """Generate commit message from staged changes"""
-        print("\n" + "="*70)
-        print("💡 GENERATE COMMIT MESSAGE")
-        print("="*70 + "\n")
-        
-        # Check for staged changes
-        import subprocess
-        result = subprocess.run(
-            ['git', 'diff', '--cached', '--name-only'],
-            capture_output=True,
-            text=True
-        )
-        
-        if not result.stdout.strip():
-            print("⚠️  No staged changes found")
-            print("💡 Stage files first with: git add <files>")
-            input("\nPress Enter to continue...")
-            return
-        
-        print("📊 Staged files:")
-        for line in result.stdout.strip().split('\n'):
-            print(f"  • {line}")
-        
-        print("\n🧠 Generating commit message...\n")
-        
-        message = commit_summarizer.generate_commit_message_for_staged_changes()
-        
-        print("="*70)
-        print("📝 Generated Commit Message:")
-        print("="*70)
-        print(f"\n{message}\n")
-        print("="*70)
-        
-        use_message = input("\nUse this message for commit? (y/n): ").strip().lower()
-        
-        if use_message == 'y':
-            try:
-                result = subprocess.run(
-                    ['git', 'commit', '-m', message],
-                    capture_output=True,
-                    text=True,
-                    check=True
-                )
-                print("\n✅ Commit created successfully!")
-                print(result.stdout)
-            except subprocess.CalledProcessError as e:
-                print(f"\n❌ Commit failed: {e.stderr}")
-        else:
-            print("\n❌ Commit cancelled")
-        
-        input("\nPress Enter to continue...")
-    
-    def _show_summarizer_config(self, commit_summarizer):
-        """Show summarizer configuration"""
-        print("\n" + "="*70)
-        print("⚙️  COMMIT SUMMARIZER CONFIGURATION")
-        print("="*70 + "\n")
-        
-        config = commit_summarizer.CONFIG
-        
-        print("Current Configuration:")
-        for key, value in config.items():
-            print(f"  • {key:<30} : {value}")
-        
-        print(f"\n🤖 AI Status:")
-        if commit_summarizer.ollama_available:
-            print("  ✅ Ollama is available and enabled")
-            print(f"  📦 Model: {config['ollama_model']}")
-        else:
-            print("  ⚠️  Ollama not available - using heuristic analysis")
-            print("  💡 Install Ollama for AI-powered summaries")
-        
-        print(f"\n📝 Processed Commits: {len(commit_summarizer.processed_commits)}")
-        
-        input("\nPress Enter to continue...")
-
-        
     def show_changelog_generator_menu(self):
         """Show changelog generator options"""
         # Create fresh generator for current directory
-        changelog_gen = ChangelogGenerator()
+        changelog_gen = EnhancedCommitSummarizer()
         
         print("\n" + "="*70)
         print("📝 CHANGELOG GENERATOR")
@@ -229,7 +121,7 @@ class GitOperations:
                 return
             
             print(f"\n🔄 Processing {num_commits} commit(s)...\n")
-            success = changelog_gen.generate_changelog(num_commits)
+            success = changelog_gen.auto_generate_after_push(num_commits)
             
             if success:
                 print("\n✅ Changelog generated successfully!")
@@ -269,7 +161,6 @@ class GitOperations:
         input("\nPress Enter to continue...")
 
 
-
 class GitMenu(Menu):
     """Unified menu for all Git operations"""
     
@@ -286,6 +177,6 @@ class GitMenu(Menu):
             MenuItem("Push (Add, Commit & Push)", lambda: self.git_ops.push()),
             MenuItem("Initialize Git & Push to GitHub", lambda: self.git_ops.initialize_and_push()),
             MenuItem("Git Recovery (Revert to Previous Commit)", lambda: self.git_ops.show_recovery_menu()),
-            MenuItem("Generate Changelog", lambda: self.git_ops.show_changelog_generator_menu()),  # UPDATED
+            MenuItem("Generate Changelog", lambda: self.git_ops.show_changelog_generator_menu()),
             MenuItem("Back to Main Menu", lambda: "exit")
         ]
