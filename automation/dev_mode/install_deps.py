@@ -1,8 +1,10 @@
 """
 automation/dev_mode/install_deps.py
 Install Node.js dependencies (npm install)
+FIXED: Windows compatibility for npm/yarn/pnpm commands
 """
 import subprocess
+import sys
 from pathlib import Path
 from typing import Optional, List, Any
 from automation.dev_mode._base import DevModeCommand
@@ -120,11 +122,15 @@ class InstallDepsCommand(DevModeCommand):
         print(f"$ {' '.join(cmd)}\n")
         
         try:
+            # Use shell=True on Windows
+            use_shell = sys.platform == 'win32'
+            
             result = subprocess.run(
-                cmd,
+                cmd if not use_shell else ' '.join(cmd),
                 cwd=Path.cwd(),
                 check=True,
-                capture_output=not interactive
+                capture_output=not interactive,
+                shell=use_shell
             )
             
             print("\n✅ Dependencies installed successfully!")
@@ -132,6 +138,11 @@ class InstallDepsCommand(DevModeCommand):
         except subprocess.CalledProcessError as e:
             if interactive:
                 print(f"\n❌ Installation failed with exit code {e.returncode}")
+            else:
+                raise
+        except FileNotFoundError:
+            if interactive:
+                print(f"\n❌ Error: '{manager}' not found in PATH")
             else:
                 raise
         except Exception as e:
@@ -172,11 +183,15 @@ class InstallDepsCommand(DevModeCommand):
         print(f"$ {' '.join(cmd)}\n")
         
         try:
+            # Use shell=True on Windows
+            use_shell = sys.platform == 'win32'
+            
             result = subprocess.run(
-                cmd,
+                cmd if not use_shell else ' '.join(cmd),
                 cwd=Path.cwd(),
                 check=True,
-                capture_output=not interactive
+                capture_output=not interactive,
+                shell=use_shell
             )
             
             print(f"\n✅ Package '{package}' installed successfully!")
@@ -184,6 +199,11 @@ class InstallDepsCommand(DevModeCommand):
         except subprocess.CalledProcessError as e:
             if interactive:
                 print(f"\n❌ Installation failed with exit code {e.returncode}")
+            else:
+                raise
+        except FileNotFoundError:
+            if interactive:
+                print(f"\n❌ Error: '{manager}' not found in PATH")
             else:
                 raise
         except Exception as e:

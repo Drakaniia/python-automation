@@ -1,6 +1,7 @@
 """
 automation/dev_mode/run_project.py
 Run project development server or build
+FIXED: Windows compatibility for npm/yarn/pnpm commands
 """
 import subprocess
 import json
@@ -110,7 +111,7 @@ class RunProjectCommand(DevModeCommand):
             return {}
     
     def _run_script(self, script_name: str, cwd: Path, attach: bool = True):
-        """Execute npm script"""
+        """Execute npm script with Windows compatibility"""
         print(f"\n🚀 Running script: {script_name}")
         print("="*70 + "\n")
         
@@ -125,20 +126,41 @@ class RunProjectCommand(DevModeCommand):
         print("="*70 + "\n")
         
         try:
-            # Run with live output
-            process = subprocess.Popen(
-                cmd,
-                cwd=cwd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                universal_newlines=True
-            )
+            # Use shell=True on Windows for npm/yarn/pnpm commands
+            use_shell = sys.platform == 'win32'
+            
+            if use_shell:
+                # Windows: use shell mode with string command
+                cmd_str = ' '.join(cmd)
+                process = subprocess.Popen(
+                    cmd_str,
+                    cwd=cwd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    universal_newlines=True,
+                    shell=True
+                )
+            else:
+                # Unix: use list command without shell
+                process = subprocess.Popen(
+                    cmd,
+                    cwd=cwd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    universal_newlines=True
+                )
             
             # Stream output
-            for line in process.stdout:
-                print(line, end='')
+            try:
+                for line in process.stdout:
+                    print(line, end='')
+            except KeyboardInterrupt:
+                # User pressed Ctrl+C
+                pass
             
             process.wait()
             
@@ -154,7 +176,14 @@ class RunProjectCommand(DevModeCommand):
                 process.terminate()
                 process.wait(timeout=5)
             except:
-                process.kill()
+                try:
+                    process.kill()
+                except:
+                    pass
+        
+        except FileNotFoundError:
+            print(f"\n❌ Error: '{pkg_manager}' not found in PATH")
+            print(f"💡 Make sure {pkg_manager} is installed and in your PATH")
         
         except Exception as e:
             print(f"\n❌ Error running script: {e}")

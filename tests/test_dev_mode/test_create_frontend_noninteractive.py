@@ -1,6 +1,7 @@
 """
 tests/test_dev_mode/test_create_frontend_noninteractive.py
 Test create_frontend module in non-interactive mode
+FIXED: Handle both list and string command formats (Windows shell=True compatibility)
 """
 import pytest
 from unittest.mock import Mock, patch, call
@@ -135,8 +136,19 @@ class TestCreateFrontendIntegration:
         
         # Verify subprocess was called
         assert mock_run.called
+        
+        # Get the first argument passed to subprocess.run
         call_args = mock_run.call_args[0][0]
-        assert 'create-react-app' in ' '.join(call_args)
+        
+        # Handle both list and string formats (Windows uses string with shell=True)
+        if isinstance(call_args, list):
+            command_str = ' '.join(call_args)
+        else:
+            command_str = call_args
+        
+        # Verify the command contains expected parts
+        assert 'create-react-app' in command_str
+        assert 'test-react-app' in command_str
     
     @patch('subprocess.run')
     @patch('pathlib.Path.exists')
@@ -153,8 +165,20 @@ class TestCreateFrontendIntegration:
         )
         
         assert mock_run.called
+        
+        # Get the command argument
         call_args = mock_run.call_args[0][0]
-        assert 'create-next-app' in ' '.join(call_args)
+        
+        # Handle both list and string formats
+        if isinstance(call_args, list):
+            command_str = ' '.join(call_args)
+        else:
+            command_str = call_args
+        
+        # Verify the command contains expected parts
+        assert 'create-next-app' in command_str
+        assert 'test-next-app' in command_str
+        assert 'typescript' in command_str
 
 
 if __name__ == "__main__":
