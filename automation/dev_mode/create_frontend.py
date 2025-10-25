@@ -1,6 +1,7 @@
 """
 automation/dev_mode/create_frontend.py
 Create new frontend projects (React, Next.js, Vue)
+FIXED: Windows compatibility for npx/npm commands
 """
 import subprocess
 import re
@@ -192,11 +193,16 @@ class CreateFrontendCommand(DevModeCommand):
             
             # Execute creation command
             print(f"$ {' '.join(cmd)}\n")
+            
+            # Use shell=True on Windows for npx/npm commands
+            use_shell = sys.platform == 'win32'
+            
             result = subprocess.run(
-                cmd,
+                cmd if not use_shell else ' '.join(cmd),
                 cwd=target_path,
                 check=True,
-                capture_output=False
+                capture_output=False,
+                shell=use_shell
             )
             
             print(f"\n✅ Project '{project_name}' created successfully!")
@@ -246,13 +252,28 @@ class CreateFrontendCommand(DevModeCommand):
         """Initialize Git repository"""
         print("\n📦 Initializing Git repository...")
         try:
-            subprocess.run(['git', 'init'], cwd=project_path, check=True, capture_output=True)
-            subprocess.run(['git', 'add', '.'], cwd=project_path, check=True, capture_output=True)
+            use_shell = sys.platform == 'win32'
+            
             subprocess.run(
-                ['git', 'commit', '-m', 'Initial commit'],
+                ['git', 'init'] if not use_shell else 'git init',
                 cwd=project_path,
                 check=True,
-                capture_output=True
+                capture_output=True,
+                shell=use_shell
+            )
+            subprocess.run(
+                ['git', 'add', '.'] if not use_shell else 'git add .',
+                cwd=project_path,
+                check=True,
+                capture_output=True,
+                shell=use_shell
+            )
+            subprocess.run(
+                ['git', 'commit', '-m', 'Initial commit'] if not use_shell else 'git commit -m "Initial commit"',
+                cwd=project_path,
+                check=True,
+                capture_output=True,
+                shell=use_shell
             )
             print("✅ Git repository initialized")
         except subprocess.CalledProcessError:
