@@ -10,20 +10,6 @@ A powerful, developer-friendly CLI automation toolkit with AI-powered Git operat
 
 ## ✨ Unique Features
 
-### 🤖 AI-Powered Git Operations
-- **Smart Commit Messages**: Automatically generates meaningful commit messages by analyzing your staged changes
-- **Intelligent Change Detection**: Analyzes file types, scopes, and patterns to create contextual commit messages
-- **Emoji-Enhanced Commits**: Automatically adds relevant emojis (🚀, 🐛, ♻️, 📚, etc.) based on change type
-- **Automatic Changelog Generation**: Creates beautiful, categorized changelog entries after each push
-- **Mood-Based Summaries**: Generates fun mood descriptors like "🚀 Feature Blast" or "🔧 Bug Squashing Session"
-
-### 📂 Interactive Navigation
-- **Arrow Key Support**: Navigate through menus and folders using ↑/↓ arrow keys
-- **Visual Highlighting**: See your current selection with cyan highlighting
-- **Cross-Platform**: Works seamlessly on Windows, Linux, and macOS
-- **Navigation History**: Tracks your folder navigation path for easy backtracking
-- **Real-time Directory Display**: Always shows your current working directory
-
 ### 🔧 Comprehensive Git Management
 - **Repository Initialization**: One-command setup for new Git repositories with remote configuration
 - **Smart Status Checking**: View detailed repository status with color-coded output
@@ -322,26 +308,6 @@ python-automation/
 └── FOLDER_STRUCTURE.MD        # Structure documentation
 ```
 
----
-
-## 🧪 Testing
-
-Run the integration test suite to verify everything is working:
-
-```bash
-python test_ai_commit.py
-```
-
-This will check:
-- ✅ File structure integrity
-- ✅ Module imports
-- ✅ AI commit message generation
-- ✅ Git operations integration
-- ✅ Menu structure
-- ✅ Encoding configuration
-
----
-
 ## 🎯 Common Use Cases
 
 ### Scenario 1: Starting a New Project
@@ -461,20 +427,6 @@ Contributions are welcome! Here's how:
 ## 📝 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
----
-
-## 🌟 Features Roadmap
-
-- [ ] Support for GitLab and Bitbucket
-- [ ] Branch management interface
-- [ ] Merge conflict resolution helper
-- [ ] Code review assistant
-- [ ] Automated testing integration
-- [ ] Custom commit message templates
-- [ ] Multi-language support
-
----
 
 ## 💬 Support
 
