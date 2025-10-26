@@ -1,10 +1,18 @@
-
-
 ### 2025-10-25
 
 #### 🐛 Bug Fixes
 
 - fix install deps (`d5c2198`) - Qwenzy
+
+**Total**: 1 commit(s)
+
+---
+
+### 2025-10-26
+
+#### 📚 Documentation
+
+- modified reomove unecessary in readme (`2903100`) - Qwenzy
 
 **Total**: 1 commit(s)
 
@@ -20,7 +28,6 @@
 
 ---
 
-
 ### 2025-10-25
 
 #### ✨ New Features
@@ -30,4 +37,3 @@
 **Total**: 1 commit(s)
 
 ---
-

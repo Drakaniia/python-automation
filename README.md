@@ -11,6 +11,7 @@ A powerful, developer-friendly CLI automation toolkit with AI-powered Git operat
 ## ✨ Unique Features
 
 ### 🔧 Comprehensive Git Management
+
 - **Repository Initialization**: One-command setup for new Git repositories with remote configuration
 - **Smart Status Checking**: View detailed repository status with color-coded output
 - **Commit Recovery**: Interactive interface to revert to previous commits
@@ -19,6 +20,7 @@ A powerful, developer-friendly CLI automation toolkit with AI-powered Git operat
 - **Remote Management**: Easy configuration and updates of remote URLs
 
 ### 📊 Project Structure Visualization
+
 - **AI-Readable Format**: Generates clean tree structures perfect for sharing with AI assistants
 - **File Size Information**: Displays human-readable file sizes for each file
 - **Smart Filtering**: Automatically excludes common unwanted directories (`__pycache__`, `.git`, `node_modules`)
@@ -26,6 +28,7 @@ A powerful, developer-friendly CLI automation toolkit with AI-powered Git operat
 - **Summary Statistics**: Shows total file and directory counts
 
 ### 🎯 Developer Experience
+
 - **Single Command Access**: Just type `magic` anywhere in your terminal
 - **Beautiful UI**: Clean, emoji-enhanced interface with clear visual hierarchy
 - **Error Handling**: Graceful error messages with helpful suggestions
@@ -33,6 +36,7 @@ A powerful, developer-friendly CLI automation toolkit with AI-powered Git operat
 - **Encoding Support**: Robust UTF-8 encoding with fallback handling
 
 ### 📝 Changelog Intelligence
+
 - **Automatic Categorization**: Organizes commits into Features, Bug Fixes, Refactoring, and Documentation
 - **Growth Analytics**: Tracks code growth/shrinkage with line counts
 - **Contributor Recognition**: Lists all contributors for multi-author projects
@@ -44,6 +48,7 @@ A powerful, developer-friendly CLI automation toolkit with AI-powered Git operat
 ## 📦 Installation
 
 ### Prerequisites
+
 - **Python 3.7 or higher**
 - **Git** (for Git operations)
 - **Bash shell** (Linux/macOS) or **Git Bash** (Windows)
@@ -53,23 +58,27 @@ A powerful, developer-friendly CLI automation toolkit with AI-powered Git operat
 #### Option 1: Automated Setup (Recommended)
 
 1. **Clone the repository**:
+
 ```bash
 git clone https://github.com/yourusername/python-automation.git
 cd python-automation
 ```
 
 2. **Run the setup script**:
+
 ```bash
 chmod +x setup.sh
 ./setup.sh
 ```
 
 3. **Activate the alias**:
+
 ```bash
 source ~/.bashrc  # or ~/.zshrc for Zsh users
 ```
 
 4. **Start using it**:
+
 ```bash
 magic
 ```
@@ -77,6 +86,7 @@ magic
 #### Option 2: Manual Setup
 
 1. **Clone the repository**:
+
 ```bash
 git clone https://github.com/yourusername/python-automation.git
 cd python-automation
@@ -85,29 +95,34 @@ cd python-automation
 2. **Add alias to your shell configuration**:
 
 For Bash (Linux/macOS):
+
 ```bash
 echo 'alias magic="python3 /full/path/to/python-automation/main.py"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
 For Zsh (macOS):
+
 ```bash
 echo 'alias magic="python3 /full/path/to/python-automation/main.py"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
 For Windows (Git Bash):
+
 ```bash
 echo 'alias magic="python /full/path/to/python-automation/main.py"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
 3. **Make the script executable** (Linux/macOS):
+
 ```bash
 chmod +x main.py
 ```
 
 4. **Run it**:
+
 ```bash
 magic
 ```
@@ -153,6 +168,7 @@ magic
 **What it does**: Analyzes your changes and generates an intelligent commit message automatically.
 
 **Usage**:
+
 1. Make changes to your files
 2. Navigate to: `GitHub Operations` → `Push (Add, Commit & Push) 🤖 AI-Powered`
 3. Review the AI-generated message
@@ -160,6 +176,7 @@ magic
 5. Automatically pushes and updates changelog
 
 **Example**:
+
 ```
 🧠 Generating AI-powered commit message...
 
@@ -176,6 +193,7 @@ Use this message? [Y/n]:
 **What it does**: Navigate your file system with arrow keys and visual feedback.
 
 **Usage**:
+
 1. Select `Navigate Folders` from main menu
 2. Use arrow keys to browse directories
 3. Press → or Enter to enter a directory
@@ -183,6 +201,7 @@ Use this message? [Y/n]:
 5. Press Enter on empty line to confirm current directory
 
 **Features**:
+
 - Shows absolute and relative paths
 - Displays all subdirectories
 - Maintains navigation history
@@ -193,12 +212,14 @@ Use this message? [Y/n]:
 **What it does**: Sets up a new Git repository and connects it to GitHub in one go.
 
 **Usage**:
+
 1. Navigate to your project directory
 2. Select `GitHub Operations` → `Initialize Git & Push to GitHub`
 3. Enter your GitHub repository URL
 4. Automatically creates README, initializes Git, and pushes
 
 **What it creates**:
+
 - `.git` directory
 - Initial commit
 - `main` branch
@@ -210,11 +231,13 @@ Use this message? [Y/n]:
 **What it does**: Generates a clean, AI-readable tree structure of your project.
 
 **Usage**:
+
 1. Navigate to your project directory
 2. Select `Show Project Structure`
 3. Copy the output to share with AI assistants
 
 **Example Output**:
+
 ```
 📁 PROJECT STRUCTURE (AI-Readable Format)
 ══════════════════════════════════════════════════════════════════
@@ -223,18 +246,20 @@ Use this message? [Y/n]:
 📍 Absolute Path: /home/user/python-automation
 
 ```
+
 python-automation/
 ├── automation/
-│   ├── __init__.py (234B)
-│   ├── folder_navigator.py (7.2KB)
-│   ├── git_operations.py (3.1KB)
-│   ├── menu.py (8.5KB)
-│   └── github/
-│       ├── __init__.py (156B)
-│       ├── commit_summarizer.py (12.3KB)
-│       └── git_push_ai.py (4.8KB)
+│ ├── **init**.py (234B)
+│ ├── folder_navigator.py (7.2KB)
+│ ├── git_operations.py (3.1KB)
+│ ├── menu.py (8.5KB)
+│ └── github/
+│ ├── **init**.py (156B)
+│ ├── commit_summarizer.py (12.3KB)
+│ └── git_push_ai.py (4.8KB)
 ├── main.py (456B)
 └── README.md (8.9KB)
+
 ```
 
 📊 Summary: 12 directories, 45 files
@@ -245,6 +270,7 @@ python-automation/
 **What it does**: Safely revert to previous commits with multiple recovery options.
 
 **Usage**:
+
 1. Select `GitHub Operations` → `Git Recovery (Revert to Previous Commit)`
 2. Choose a commit from the list or enter a commit ID
 3. Select recovery method:
@@ -253,6 +279,7 @@ python-automation/
    - **Create Branch**: Create new branch from that commit
 
 **Safety Features**:
+
 - Requires explicit confirmation for destructive operations
 - Shows full commit details before reverting
 - Provides multiple recovery strategies
@@ -262,19 +289,23 @@ python-automation/
 **What it does**: Maintains a beautiful, categorized changelog automatically.
 
 **Generated Format**:
+
 ```markdown
 ### 2025-10-18 — 🚀 Feature Blast
 
 **3 commits** across **8 files**. The codebase grew by 234 lines.
 
 #### ✨ New Features
+
 - Add AI-powered commit generation (`767fe68`)
 - Implement smart file analysis (`aabbc61`)
 
 #### 🐛 Bug Fixes
+
 - Fix encoding issues in git operations (`8ed4705`)
 
 #### 🔧 Refactoring & Improvements
+
 - Consolidate Git operations into unified module (`9d18d76`)
 ```
 
@@ -361,6 +392,7 @@ magic
 ### Shell Compatibility
 
 The system automatically detects your shell and configures accordingly:
+
 - **Bash**: Uses `~/.bashrc`
 - **Zsh**: Uses `~/.zshrc`
 - **Git Bash (Windows)**: Uses `~/.bashrc`
@@ -368,6 +400,7 @@ The system automatically detects your shell and configures accordingly:
 ### Python Version
 
 The setup script automatically detects:
+
 - `python3` command (preferred)
 - `python` command (if it's Python 3)
 
@@ -378,6 +411,7 @@ The setup script automatically detects:
 ### Issue: "magic: command not found"
 
 **Solution**: Reload your shell configuration:
+
 ```bash
 source ~/.bashrc  # or ~/.zshrc
 ```
@@ -385,12 +419,14 @@ source ~/.bashrc  # or ~/.zshrc
 ### Issue: Arrow keys not working
 
 **Solution**: The system has fallback support. Use number keys instead:
+
 - Type the number of your choice
 - Press Enter
 
 ### Issue: "Not a git repository"
 
 **Solution**: Initialize Git first:
+
 ```bash
 magic
 # Select: GitHub Operations → Initialize Git & Push to GitHub
@@ -399,6 +435,7 @@ magic
 ### Issue: Permission denied
 
 **Solution**: Make the script executable:
+
 ```bash
 chmod +x /path/to/python-automation/main.py
 ```
@@ -406,6 +443,7 @@ chmod +x /path/to/python-automation/main.py
 ### Issue: Encoding errors
 
 **Solution**: The system has built-in UTF-8 encoding with fallback. If issues persist, ensure your terminal supports UTF-8:
+
 ```bash
 export LANG=en_US.UTF-8
 ```

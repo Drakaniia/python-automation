@@ -1,11 +1,10 @@
 """
 automation/dev_mode/run_project.py
 Run project development server or build
-FIXED: Windows compatibility for npm/yarn/pnpm commands
+FIXED: Windows compatibility and encoding issues
 """
 import subprocess
 import json
-import signal
 import sys
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -27,12 +26,17 @@ class RunProjectCommand(DevModeCommand):
     
     def _interactive_run(self):
         """Interactive project run flow"""
+        # Always use current directory
+        current_dir = Path.cwd()
+        
         print("\n" + "="*70)
         print("▶️  RUN PROJECT")
+        print("="*70)
+        print(f"📍 Current Directory: {current_dir}")
         print("="*70 + "\n")
         
         # Check for package.json
-        package_json = Path.cwd() / 'package.json'
+        package_json = current_dir / 'package.json'
         if not package_json.exists():
             print("❌ No package.json found in current directory")
             print("💡 Navigate to a Node.js project directory first")
@@ -64,7 +68,7 @@ class RunProjectCommand(DevModeCommand):
             
             if 1 <= choice_num <= len(scripts):
                 script_name = list(scripts.keys())[choice_num - 1]
-                self._run_script(script_name, package_json.parent)
+                self._run_script(script_name, current_dir)
             else:
                 print("❌ Invalid choice")
                 input("\nPress Enter to continue...")
@@ -80,7 +84,9 @@ class RunProjectCommand(DevModeCommand):
         attach: bool = True
     ):
         """Non-interactive project run"""
-        package_json = Path.cwd() / 'package.json'
+        current_dir = Path.cwd()
+        package_json = current_dir / 'package.json'
+        
         if not package_json.exists():
             raise FileNotFoundError("No package.json found in current directory")
         
@@ -88,7 +94,7 @@ class RunProjectCommand(DevModeCommand):
         if mode not in scripts:
             raise ValueError(f"Script '{mode}' not found in package.json")
         
-        self._run_script(mode, Path.cwd(), attach=attach)
+        self._run_script(mode, current_dir, attach=attach)
     
     def _detect_scripts(self, package_json: Path) -> Dict[str, str]:
         """Detect available npm scripts"""
@@ -111,7 +117,7 @@ class RunProjectCommand(DevModeCommand):
             return {}
     
     def _run_script(self, script_name: str, cwd: Path, attach: bool = True):
-        """Execute npm script with Windows compatibility"""
+        """Execute npm script with proper encoding handling"""
         print(f"\n🚀 Running script: {script_name}")
         print("="*70 + "\n")
         
@@ -130,7 +136,7 @@ class RunProjectCommand(DevModeCommand):
             use_shell = sys.platform == 'win32'
             
             if use_shell:
-                # Windows: use shell mode with string command
+                # Windows: use shell mode with string command and proper encoding
                 cmd_str = ' '.join(cmd)
                 process = subprocess.Popen(
                     cmd_str,
@@ -140,7 +146,9 @@ class RunProjectCommand(DevModeCommand):
                     text=True,
                     bufsize=1,
                     universal_newlines=True,
-                    shell=True
+                    shell=True,
+                    encoding='utf-8',
+                    errors='replace'  # Replace invalid characters instead of crashing
                 )
             else:
                 # Unix: use list command without shell
@@ -151,13 +159,21 @@ class RunProjectCommand(DevModeCommand):
                     stderr=subprocess.STDOUT,
                     text=True,
                     bufsize=1,
-                    universal_newlines=True
+                    universal_newlines=True,
+                    encoding='utf-8',
+                    errors='replace'  # Replace invalid characters instead of crashing
                 )
             
-            # Stream output
+            # Stream output with robust error handling
             try:
                 for line in process.stdout:
-                    print(line, end='')
+                    try:
+                        # Print each line, handling any remaining encoding issues
+                        print(line, end='')
+                        sys.stdout.flush()
+                    except (UnicodeDecodeError, UnicodeEncodeError):
+                        # Skip lines that can't be decoded/encoded
+                        continue
             except KeyboardInterrupt:
                 # User pressed Ctrl+C
                 pass
@@ -166,6 +182,8 @@ class RunProjectCommand(DevModeCommand):
             
             if process.returncode == 0:
                 print("\n\n✅ Script completed successfully")
+            elif process.returncode is None:
+                print("\n\n⚠️  Script was interrupted")
             else:
                 print(f"\n\n⚠️  Script exited with code {process.returncode}")
         
@@ -187,6 +205,8 @@ class RunProjectCommand(DevModeCommand):
         
         except Exception as e:
             print(f"\n❌ Error running script: {e}")
+            import traceback
+            traceback.print_exc()
         
         input("\nPress Enter to continue...")
     

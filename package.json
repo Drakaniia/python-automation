@@ -1,0 +1,20 @@
+{
+  "name": "python-automation",
+  "version": "1.0.0",
+  "description": "A powerful, developer-friendly CLI automation toolkit with AI-powered Git operations, interactive navigation, and intelligent commit management.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  }
+}
