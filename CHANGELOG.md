@@ -10,6 +10,17 @@
 
 ### 2025-10-26
 
+#### 🔧 Maintenance
+
+- update gitignore (`10a05ed`) - Qwenzy
+
+**Total**: 1 commit(s)
+
+---
+
+
+### 2025-10-26
+
 #### ✨ New Features
 
 - fix prettier add prettier (`79bb75c`) - Qwenzy

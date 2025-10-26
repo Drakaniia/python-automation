@@ -1,28 +1,14 @@
-# Ignore build outputs
 node_modules/
 dist/
 build/
 .next/
 out/
-
-# Ignore cache
 .cache/
-.parcel-cache/
-
-# Ignore package manager files
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
-
-# Ignore git
 .git/
-
-# Ignore Python
 __pycache__/
 *.pyc
 .venv/
-venv/
-
-# Ignore environment files
 .env
-.env.*

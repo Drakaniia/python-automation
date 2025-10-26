@@ -1,12 +1,13 @@
 """
 automation/dev_mode/format_code.py
 Simple Prettier setup - installs once and configures format-on-save
+UPDATED: Searches parent folders for .code-workspace file and modifies it
 """
 import subprocess
 import json
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
 from automation.dev_mode._base import DevModeCommand
 
 
@@ -15,6 +16,44 @@ class FormatCodeCommand(DevModeCommand):
     
     label = "Setup Prettier (Format on Save)"
     description = "Install and configure Prettier for auto-formatting"
+    
+    # Required VS Code workspace settings
+    REQUIRED_VSCODE_SETTINGS = {
+        "editor.formatOnSave": True,
+        "editor.formatOnPaste": True,
+        "editor.formatOnType": True,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "[javascript]": {
+            "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[javascriptreact]": {
+            "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[typescript]": {
+            "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[typescriptreact]": {
+            "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[json]": {
+            "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[html]": {
+            "editor.defaultFormatter": "vscode.html-language-features"
+        },
+        "[css]": {
+            "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[scss]": {
+            "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[vue]": {
+            "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[markdown]": {
+            "editor.defaultFormatter": "esbenp.prettier-vscode"
+        }
+    }
     
     def run(self, interactive: bool = True, **kwargs) -> any:
         """Execute Prettier setup"""
@@ -66,7 +105,7 @@ class FormatCodeCommand(DevModeCommand):
         # Create/update configuration files
         print("🔧 Setting up configuration files...\n")
         
-        # 1. Create .prettierrc if it doesn't exist
+        # 1. Create .prettierrc
         if not self._check_prettier_config(current_dir):
             self._create_prettier_config(current_dir)
             print("✅ Created .prettierrc")
@@ -77,9 +116,8 @@ class FormatCodeCommand(DevModeCommand):
         self._create_prettier_ignore(current_dir)
         print("✅ Created/Updated .prettierignore")
         
-        # 3. Create/Update VSCode settings for format-on-save
-        self._create_vscode_settings(current_dir)
-        print("✅ Created/Updated .vscode/settings.json (Workspace Settings)")
+        # 3. Configure VS Code workspace settings
+        workspace_configured = self._configure_vscode_workspace_settings(current_dir)
         
         # 4. Add format script to package.json
         self._add_format_script(current_dir)
@@ -92,50 +130,42 @@ class FormatCodeCommand(DevModeCommand):
         print("  • Prettier installed as dev dependency")
         print("  • .prettierrc configuration file")
         print("  • .prettierignore (excludes node_modules, etc.)")
-        print("  • .vscode/settings.json (Workspace Settings) ✅")
+        if workspace_configured:
+            print("  • .code-workspace file settings ✅")
         print("  • npm run format script added")
         
-        print("\n✅ Workspace Settings Automatically Configured:")
-        print("     The following settings were written to .vscode/settings.json:")
-        print('     {')
-        print('       "editor.formatOnSave": true,')
-        print('       "editor.formatOnPaste": true,')
-        print('       "editor.formatOnType": true,')
-        print('       "editor.defaultFormatter": "esbenp.prettier-vscode"')
-        print('     }')
+        if workspace_configured:
+            print("\n✅ Workspace Settings Automatically Configured:")
+            print("     Settings were written to the .code-workspace file")
+            print("     Format on save is now enabled!")
         
         print("\n💡 How to use:")
-        print("  • Auto-format: Just press Ctrl+S (save) in VSCode")
+        print("  • Auto-format: Just press Ctrl+S (save) in VS Code")
         print("  • Manual format: npm run format")
-        print("  • Format file: Right-click → Format Document")
         
-        print("\n⚠️  FINAL STEPS (One-Time Setup):")
+        print("\n⚠️  FINAL STEPS:")
         print("="*70)
-        print("\n1️⃣  Install Prettier VSCode Extension (REQUIRED):")
+        
+        if workspace_configured:
+            print("\n1️⃣  Reload VS Code Window:")
+            print("     • Press Ctrl+Shift+P")
+            print("     • Type: 'Reload Window'")
+            print("     • Press Enter")
+        else:
+            print("\n1️⃣  No .code-workspace file found!")
+            print("     • You need to open your project as a workspace")
+            print("     • Or settings will be created in .vscode/settings.json")
+        
+        print("\n2️⃣  Install Prettier VS Code Extension (if not installed):")
         print("     • Press Ctrl+Shift+X (Extensions)")
         print("     • Search: 'Prettier - Code formatter'")
-        print("     • Click Install (by Prettier)")
-        
-        print("\n2️⃣  Restart VSCode:")
-        print("     • Close VSCode completely")
-        print("     • Reopen your project")
+        print("     • Click Install")
         
         print("\n3️⃣  Test it:")
-        print("     • Open any .js, .jsx, .ts, or .tsx file")
-        print("     • Write messy code (wrong indentation)")
-        print("     • Press Ctrl+S")
-        print("     • Watch it auto-format! ✨")
+        print("     • Open any file")
+        print("     • Write messy code")
+        print("     • Press Ctrl+S → Auto-format! ✨")
         
-        print("\n📂 Files Created:")
-        print(f"     • {current_dir / '.vscode' / 'settings.json'}")
-        print(f"     • {current_dir / '.vscode' / 'SETTINGS_INFO.md'}")
-        print(f"     • {current_dir / '.prettierrc'}")
-        print(f"     • {current_dir / '.prettierignore'}")
-        
-        print("\n🔧 Troubleshooting:")
-        print("     • Settings not working? Check if Prettier extension is installed")
-        print("     • Right-click file → Format Document With... → Choose Prettier")
-        print("     • View settings: Ctrl+Shift+P → 'Open Workspace Settings (JSON)'")
         print("="*70 + "\n")
         
         input("Press Enter to continue...")
@@ -150,11 +180,204 @@ class FormatCodeCommand(DevModeCommand):
         
         self._create_prettier_config(current_dir)
         self._create_prettier_ignore(current_dir)
-        self._create_vscode_settings(current_dir)
+        self._configure_vscode_workspace_settings(current_dir)
         self._add_format_script(current_dir)
     
+    # ============================================================
+    # VS Code Workspace Configuration
+    # ============================================================
+    
+    def _configure_vscode_workspace_settings(self, project_dir: Path) -> bool:
+        """
+        Find and configure VS Code workspace file
+        Searches current directory and parent directories
+        
+        Args:
+            project_dir: Starting project directory
+        
+        Returns:
+            True if workspace file was found and configured
+        """
+        print("\n🔧 Searching for VS Code workspace file...")
+        print("="*70)
+        
+        # Find .code-workspace file
+        workspace_file = self._find_workspace_file(project_dir)
+        
+        if not workspace_file:
+            print("⚠️  No .code-workspace file found")
+            print("💡 Searched in:")
+            print(f"   • {project_dir}")
+            print(f"   • {project_dir.parent}")
+            print(f"   • {project_dir.parent.parent}")
+            print("\n❌ Cannot configure workspace settings")
+            print("💡 Solution: Open your project as a workspace in VS Code")
+            print("="*70 + "\n")
+            return False
+        
+        print(f"✅ Found workspace file: {workspace_file}")
+        print(f"   Location: {workspace_file.parent}")
+        
+        # Load existing workspace data
+        workspace_data = self._load_workspace_file(workspace_file)
+        
+        if workspace_data is None:
+            print("❌ Failed to load workspace file")
+            print("="*70 + "\n")
+            return False
+        
+        # Merge with required settings
+        workspace_data = self._merge_workspace_settings(workspace_data)
+        
+        # Write back to workspace file
+        success = self._write_workspace_file(workspace_file, workspace_data)
+        
+        print("="*70)
+        if success:
+            print("✅ Workspace settings configured successfully!")
+            print(f"📄 File: {workspace_file}")
+        else:
+            print("❌ Failed to configure workspace settings")
+        print("="*70 + "\n")
+        
+        return success
+    
+    def _find_workspace_file(self, start_dir: Path, max_depth: int = 3) -> Optional[Path]:
+        """
+        Search for .code-workspace file in current and parent directories
+        
+        Args:
+            start_dir: Starting directory
+            max_depth: Maximum number of parent directories to search
+        
+        Returns:
+            Path to workspace file or None
+        """
+        current = start_dir
+        
+        for depth in range(max_depth):
+            print(f"   Searching: {current}")
+            
+            # Search for .code-workspace files in current directory
+            workspace_files = list(current.glob('*.code-workspace'))
+            
+            if workspace_files:
+                return workspace_files[0]
+            
+            # Move to parent directory
+            parent = current.parent
+            if parent == current:  # Reached root
+                break
+            current = parent
+        
+        return None
+    
+    def _load_workspace_file(self, workspace_file: Path) -> Optional[Dict[str, Any]]:
+        """
+        Load .code-workspace file
+        
+        Args:
+            workspace_file: Path to workspace file
+        
+        Returns:
+            Workspace data dictionary or None if failed
+        """
+        try:
+            with open(workspace_file, 'r', encoding='utf-8') as f:
+                content = f.read().strip()
+                
+                if not content:
+                    return {"folders": [{"path": "."}], "settings": {}}
+                
+                data = json.loads(content)
+                
+                # Ensure settings section exists
+                if "settings" not in data:
+                    data["settings"] = {}
+                
+                print(f"   Loaded {len(data.get('settings', {}))} existing settings")
+                return data
+        
+        except json.JSONDecodeError as e:
+            print(f"   ⚠️  Invalid JSON: {e}")
+            return None
+        except Exception as e:
+            print(f"   ⚠️  Error: {e}")
+            return None
+    
+    def _merge_workspace_settings(self, workspace_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Merge required settings into workspace data
+        
+        Args:
+            workspace_data: Current workspace data
+        
+        Returns:
+            Updated workspace data
+        """
+        print("\n   🔄 Merging settings...")
+        
+        if "settings" not in workspace_data:
+            workspace_data["settings"] = {}
+        
+        settings = workspace_data["settings"]
+        added = 0
+        updated = 0
+        
+        for key, value in self.REQUIRED_VSCODE_SETTINGS.items():
+            if key not in settings:
+                added += 1
+                settings[key] = value
+            elif settings[key] != value:
+                updated += 1
+                settings[key] = value
+        
+        if added:
+            print(f"   ➕ Added {added} new settings")
+        if updated:
+            print(f"   🔄 Updated {updated} existing settings")
+        if not added and not updated:
+            print("   ✅ All required settings already configured")
+        
+        return workspace_data
+    
+    def _write_workspace_file(self, workspace_file: Path, workspace_data: Dict[str, Any]) -> bool:
+        """
+        Write workspace data to file
+        
+        Args:
+            workspace_file: Path to workspace file
+            workspace_data: Workspace data to write
+        
+        Returns:
+            True if successful
+        """
+        print(f"\n   💾 Writing to {workspace_file.name}...")
+        
+        try:
+            json_content = json.dumps(
+                workspace_data,
+                indent=4,
+                ensure_ascii=False
+            )
+            
+            with open(workspace_file, 'w', encoding='utf-8') as f:
+                f.write(json_content)
+                f.write('\n')
+            
+            print(f"   ✅ Updated successfully")
+            return True
+        
+        except Exception as e:
+            print(f"   ❌ Failed: {e}")
+            return False
+    
+    # ============================================================
+    # Helper Methods
+    # ============================================================
+    
     def _check_prettier_installed(self, project_dir: Path) -> bool:
-        """Check if Prettier is installed locally"""
+        """Check if Prettier is installed"""
         package_json = project_dir / 'package.json'
         
         if not package_json.exists():
@@ -164,21 +387,17 @@ class FormatCodeCommand(DevModeCommand):
             with open(package_json, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             
-            # Check devDependencies and dependencies
             dev_deps = data.get('devDependencies', {})
             deps = data.get('dependencies', {})
             
             return 'prettier' in dev_deps or 'prettier' in deps
-        
         except Exception:
             return False
     
     def _install_prettier_with_progress(self, project_dir: Path) -> bool:
-        """Install Prettier with progress indication"""
-        # Detect package manager
+        """Install Prettier with progress"""
         pkg_manager = self._detect_package_manager(project_dir)
         
-        # Build install command
         if pkg_manager == 'npm':
             cmd = ['npm', 'install', '--save-dev', 'prettier']
         elif pkg_manager == 'yarn':
@@ -193,7 +412,6 @@ class FormatCodeCommand(DevModeCommand):
         try:
             use_shell = sys.platform == 'win32'
             
-            # Show live output
             if use_shell:
                 process = subprocess.Popen(
                     ' '.join(cmd),
@@ -216,14 +434,12 @@ class FormatCodeCommand(DevModeCommand):
                     errors='replace'
                 )
             
-            # Stream output
             for line in process.stdout:
                 print(line, end='')
                 sys.stdout.flush()
             
             process.wait()
             return process.returncode == 0
-        
         except Exception as e:
             print(f"\n❌ Error: {e}")
             return False
@@ -235,7 +451,7 @@ class FormatCodeCommand(DevModeCommand):
         try:
             use_shell = sys.platform == 'win32'
             
-            result = subprocess.run(
+            subprocess.run(
                 ['npm', 'init', '-y'] if not use_shell else 'npm init -y',
                 cwd=project_dir,
                 check=True,
@@ -247,7 +463,6 @@ class FormatCodeCommand(DevModeCommand):
             
             print("✅ package.json created")
             return True
-        
         except subprocess.CalledProcessError:
             print("❌ Failed to create package.json")
             return False
@@ -258,8 +473,6 @@ class FormatCodeCommand(DevModeCommand):
             return 'pnpm'
         elif (project_dir / 'yarn.lock').exists():
             return 'yarn'
-        elif (project_dir / 'package-lock.json').exists():
-            return 'npm'
         else:
             return 'npm'
     
@@ -269,15 +482,11 @@ class FormatCodeCommand(DevModeCommand):
             '.prettierrc',
             '.prettierrc.json',
             '.prettierrc.js',
-            '.prettierrc.yaml',
-            '.prettierrc.yml',
-            'prettier.config.js'
         ]
-        
         return any((project_dir / config).exists() for config in config_files)
     
     def _create_prettier_config(self, project_dir: Path):
-        """Create default .prettierrc configuration"""
+        """Create .prettierrc configuration"""
         config = {
             "semi": True,
             "trailingComma": "es5",
@@ -300,34 +509,20 @@ class FormatCodeCommand(DevModeCommand):
     def _create_prettier_ignore(self, project_dir: Path):
         """Create .prettierignore file"""
         ignore_patterns = [
-            "# Ignore build outputs",
             "node_modules/",
             "dist/",
             "build/",
             ".next/",
             "out/",
-            "",
-            "# Ignore cache",
             ".cache/",
-            ".parcel-cache/",
-            "",
-            "# Ignore package manager files",
             "package-lock.json",
             "yarn.lock",
             "pnpm-lock.yaml",
-            "",
-            "# Ignore git",
             ".git/",
-            "",
-            "# Ignore Python",
             "__pycache__/",
             "*.pyc",
             ".venv/",
-            "venv/",
-            "",
-            "# Ignore environment files",
             ".env",
-            ".env.*",
         ]
         
         ignore_file = project_dir / '.prettierignore'
@@ -337,95 +532,6 @@ class FormatCodeCommand(DevModeCommand):
                 f.write('\n'.join(ignore_patterns))
         except Exception as e:
             print(f"⚠️  Could not create .prettierignore: {e}")
-    
-    def _create_vscode_settings(self, project_dir: Path):
-        """Create or update .vscode/settings.json for format-on-save (Workspace Settings)"""
-        vscode_dir = project_dir / '.vscode'
-        settings_file = vscode_dir / 'settings.json'
-        
-        # Create .vscode directory if it doesn't exist
-        vscode_dir.mkdir(exist_ok=True)
-        
-        # Settings to add - Enhanced for proper format-on-save
-        # This is the WORKSPACE settings.json that VSCode uses
-        prettier_settings = {
-            "editor.formatOnSave": True,
-            "editor.formatOnPaste": True,
-            "editor.formatOnType": True,
-            "editor.defaultFormatter": "esbenp.prettier-vscode",
-            "[javascript]": {
-                "editor.defaultFormatter": "esbenp.prettier-vscode"
-            },
-            "[javascriptreact]": {
-                "editor.defaultFormatter": "esbenp.prettier-vscode"
-            },
-            "[typescript]": {
-                "editor.defaultFormatter": "esbenp.prettier-vscode"
-            },
-            "[typescriptreact]": {
-                "editor.defaultFormatter": "esbenp.prettier-vscode"
-            },
-            "[json]": {
-                "editor.defaultFormatter": "esbenp.prettier-vscode"
-            },
-            "[html]": {
-                "editor.defaultFormatter": "vscode.html-language-features"
-            },
-            "[css]": {
-                "editor.defaultFormatter": "esbenp.prettier-vscode"
-            },
-            "[scss]": {
-                "editor.defaultFormatter": "esbenp.prettier-vscode"
-            },
-            "[vue]": {
-                "editor.defaultFormatter": "esbenp.prettier-vscode"
-            },
-            "[markdown]": {
-                "editor.defaultFormatter": "esbenp.prettier-vscode"
-            }
-        }
-        
-        try:
-            # Read existing settings if file exists
-            existing_settings = {}
-            if settings_file.exists():
-                try:
-                    with open(settings_file, 'r', encoding='utf-8') as f:
-                        content = f.read().strip()
-                        if content:  # Only parse if file has content
-                            existing_settings = json.loads(content)
-                except json.JSONDecodeError:
-                    # If file is corrupted, start fresh
-                    existing_settings = {}
-                except Exception:
-                    existing_settings = {}
-            
-            # Merge settings (prettier settings take precedence)
-            existing_settings.update(prettier_settings)
-            
-            # Write back with nice formatting
-            with open(settings_file, 'w', encoding='utf-8') as f:
-                json.dump(existing_settings, f, indent=4)
-            
-            # Also create a backup comment file for user reference
-            readme_file = vscode_dir / 'SETTINGS_INFO.md'
-            with open(readme_file, 'w', encoding='utf-8') as f:
-                f.write("# VSCode Workspace Settings\n\n")
-                f.write("This folder contains workspace-specific settings for VSCode.\n\n")
-                f.write("## settings.json\n")
-                f.write("Automatically configured by Python Automation System.\n\n")
-                f.write("These settings enable:\n")
-                f.write("- Format on Save (Ctrl+S)\n")
-                f.write("- Format on Paste\n")
-                f.write("- Format on Type\n")
-                f.write("- Prettier as default formatter\n\n")
-                f.write("To view these settings in VSCode:\n")
-                f.write("1. Press Ctrl+Shift+P\n")
-                f.write("2. Type: 'Preferences: Open Workspace Settings (JSON)'\n")
-                f.write("3. You'll see this settings.json file\n")
-        
-        except Exception as e:
-            print(f"⚠️  Could not create VSCode settings: {e}")
     
     def _add_format_script(self, project_dir: Path):
         """Add format script to package.json"""
@@ -438,18 +544,14 @@ class FormatCodeCommand(DevModeCommand):
             with open(package_json, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             
-            # Add scripts section if it doesn't exist
             if 'scripts' not in data:
                 data['scripts'] = {}
             
-            # Add format script
             data['scripts']['format'] = 'prettier --write .'
             data['scripts']['format:check'] = 'prettier --check .'
             
-            # Write back
             with open(package_json, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2)
-        
         except Exception as e:
             print(f"⚠️  Could not update package.json: {e}")
 
