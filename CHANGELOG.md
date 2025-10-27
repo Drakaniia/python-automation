@@ -10,6 +10,17 @@
 
 ### 2025-10-27
 
+#### 🐛 Bug Fixes
+
+- fix structure viewer (`6842fa1`) - Qwenzy
+
+**Total**: 1 commit(s)
+
+---
+
+
+### 2025-10-27
+
 #### 🔧 Maintenance
 
 - smart structure viewer (`459a694`) - Qwenzy

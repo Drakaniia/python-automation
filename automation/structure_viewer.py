@@ -1,12 +1,12 @@
 """
 automation/structure_viewer.py
-Intelligent Project Structure Viewer - Shows ALL Important Code
+Enhanced Project Structure Viewer - Excludes Hidden Folders
 
 Features:
 - Shows ALL directories with actual source code
+- Excludes ALL hidden folders (starting with .) EXCEPT important files
 - Respects .gitignore patterns
-- Hides only true build artifacts, cache, and dependencies
-- Shows hidden files only if they're important (.env, .gitignore)
+- Shows only true build artifacts and dependencies as exclusions
 - Works across all languages (Python, JavaScript, etc.)
 """
 import os
@@ -16,7 +16,7 @@ from typing import Set, List, Optional, Tuple
 
 
 class StructureViewer:
-    """Intelligent project structure viewer"""
+    """Enhanced project structure viewer with hidden folder exclusion"""
     
     # ONLY exclude true build artifacts and dependencies
     EXCLUDE_DIRS = {
@@ -26,14 +26,13 @@ class StructureViewer:
         ".venv", "venv", "env", "ENV", "virtualenv",
         
         # JavaScript/Node
-        "node_modules", ".next/cache", ".next/server", "out",
-        ".nuxt", ".cache", ".parcel-cache", ".turbo",
-        "bower_components",
+        "node_modules", ".next", ".nuxt", ".cache", ".parcel-cache", 
+        ".turbo", "bower_components", "out",
         
         # Build outputs (ONLY generated files)
         "dist", "build", ".build", "target/debug", "target/release",
         
-        # Version control and IDE (hidden)
+        # Version control (hidden)
         ".git", ".svn", ".hg",
         
         # OS files
@@ -58,18 +57,44 @@ class StructureViewer:
         "*.swp", "*.swo", "*~"
     }
     
-    # ALWAYS show these important files
-    ALWAYS_SHOW = {
+    # ALWAYS show these important files (even if hidden)
+    ALWAYS_SHOW_FILES = {
+        # Environment files
         ".env", ".env.example", ".env.template", ".env.development",
+        ".env.local", ".env.production", ".env.test",
+        
+        # Git files
         ".gitignore", ".dockerignore", ".gitattributes",
+        
+        # Documentation
         "README.md", "README.txt", "LICENSE", "CHANGELOG.md",
-        "Dockerfile", "docker-compose.yml",
-        ".prettierrc", ".prettierrc.json", ".prettierignore",
-        ".eslintrc", ".eslintrc.js", ".eslintrc.json",
+        
+        # Docker
+        "Dockerfile", "docker-compose.yml", ".dockerignore",
+        
+        # Code formatting
+        ".prettierrc", ".prettierrc.json", ".prettierrc.js", 
+        ".prettierrc.yaml", ".prettierignore",
+        
+        # Linting
+        ".eslintrc", ".eslintrc.js", ".eslintrc.json", ".eslintrc.yaml",
+        ".eslintignore",
+        
+        # TypeScript/JavaScript config
         "tsconfig.json", "jsconfig.json",
+        
+        # Package/Project files
         "package.json", "setup.py", "pyproject.toml",
         "requirements.txt", "Cargo.toml", "go.mod",
-        "Makefile", ".editorconfig"
+        
+        # Build tools
+        "Makefile", ".editorconfig",
+        
+        # IDE (sometimes important)
+        ".vscode/settings.json", ".vscode/launch.json",
+        
+        # Babel
+        ".babelrc", ".babelrc.js", ".babelrc.json"
     }
     
     # Source code extensions (if a directory has these, it's important)
@@ -108,7 +133,7 @@ class StructureViewer:
         self.gitignore_patterns: Set[str] = set()
     
     def show_structure(self):
-        """Display intelligent project structure"""
+        """Display enhanced project structure"""
         self.current_dir = Path.cwd()
         
         print("\n" + "="*70)
@@ -121,7 +146,7 @@ class StructureViewer:
         self._load_gitignore()
         
         print("\n💡 Showing: All source code and important files")
-        print(f"   Hiding: Build artifacts, dependencies, cache")
+        print(f"   Hiding: Build artifacts, dependencies, cache, hidden folders")
         print(f"   Max depth: {self.max_depth} levels\n")
         
         # Generate the tree structure
@@ -166,11 +191,11 @@ class StructureViewer:
         """
         Determine if path should be excluded
         
-        Strategy:
+        Enhanced Strategy:
         1. NEVER exclude if it's an ALWAYS_SHOW file
-        2. NEVER exclude if directory contains source code
-        3. ONLY exclude if it's in EXCLUDE_DIRS/FILES or .gitignore
-        4. For hidden files (starting with .), exclude unless important
+        2. ALWAYS exclude hidden folders (starting with .) UNLESS they contain only important files
+        3. NEVER exclude non-hidden directories with source code
+        4. ONLY exclude if it's in EXCLUDE_DIRS/FILES or .gitignore
         
         Args:
             path: Path to check
@@ -182,20 +207,34 @@ class StructureViewer:
         name = path.name
         
         # Rule 1: Never exclude always-show files
-        if name in self.ALWAYS_SHOW:
+        if not is_dir and name in self.ALWAYS_SHOW_FILES:
             return False
         
-        # Rule 2: Hidden files - only show if important
-        if name.startswith('.') and name not in self.ALWAYS_SHOW:
-            # Allow hidden directories that might contain code
-            if is_dir:
-                # Check if it has source code inside
-                if self._has_source_code(path):
-                    return False
-            # Exclude other hidden files
-            return True
+        # Also check relative path for nested important files (like .vscode/settings.json)
+        try:
+            relative_path = str(path.relative_to(self.current_dir))
+            if relative_path in self.ALWAYS_SHOW_FILES:
+                return False
+        except ValueError:
+            pass
         
-        # Rule 3: Check explicit exclude lists
+        # Rule 2: ALWAYS exclude hidden folders (starting with .)
+        # Exception: Only if it's an important config file
+        if name.startswith('.'):
+            if is_dir:
+                # Hidden directory - ALWAYS exclude
+                # Exception: Check if it's a special case like .vscode with important files
+                if name == '.vscode':
+                    # Only show .vscode if it has important files
+                    return not self._has_important_vscode_files(path)
+                
+                # All other hidden directories are excluded
+                return True
+            else:
+                # Hidden file - only show if in ALWAYS_SHOW_FILES
+                return name not in self.ALWAYS_SHOW_FILES
+        
+        # Rule 3: Check explicit exclude lists for non-hidden items
         if is_dir:
             if name in self.EXCLUDE_DIRS:
                 return True
@@ -209,11 +248,32 @@ class StructureViewer:
             relative_path = str(path.relative_to(self.current_dir))
             for pattern in self.gitignore_patterns:
                 if self._matches_gitignore(relative_path, pattern, is_dir):
-                    # But still show if it's a directory with source code
-                    if is_dir and self._has_source_code(path):
+                    # But still show if it's a non-hidden directory with source code
+                    if is_dir and not name.startswith('.') and self._has_source_code(path):
                         return False
                     return True
         except ValueError:
+            pass
+        
+        return False
+    
+    def _has_important_vscode_files(self, vscode_dir: Path) -> bool:
+        """
+        Check if .vscode directory contains important config files
+        
+        Args:
+            vscode_dir: .vscode directory path
+        
+        Returns:
+            True if contains important files
+        """
+        important_vscode_files = {'settings.json', 'launch.json', 'tasks.json'}
+        
+        try:
+            for item in vscode_dir.iterdir():
+                if item.is_file() and item.name in important_vscode_files:
+                    return True
+        except (PermissionError, OSError):
             pass
         
         return False
@@ -236,13 +296,12 @@ class StructureViewer:
                     if item.suffix in self.SOURCE_EXTENSIONS:
                         return True
                     # Check if it's an important file
-                    if item.name in self.ALWAYS_SHOW:
+                    if item.name in self.ALWAYS_SHOW_FILES:
                         return True
-                elif item.is_dir():
+                elif item.is_dir() and not item.name.startswith('.'):
                     # Recursively check subdirectories (but limit depth)
-                    if not item.name.startswith('.'):
-                        if self._has_source_code_shallow(item):
-                            return True
+                    if self._has_source_code_shallow(item):
+                        return True
         except (PermissionError, OSError):
             pass
         
