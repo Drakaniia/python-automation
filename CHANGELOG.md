@@ -10,6 +10,17 @@
 
 ### 2025-10-27
 
+#### 🔧 Maintenance
+
+- smart structure viewer (`459a694`) - Qwenzy
+
+**Total**: 1 commit(s)
+
+---
+
+
+### 2025-10-27
+
 #### ✨ New Features
 
 - add responsiveness to the menu (`bc1f8d7`) - Qwenzy
