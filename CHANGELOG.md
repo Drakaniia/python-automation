@@ -10,6 +10,17 @@
 
 ### 2025-10-26
 
+#### 🐛 Bug Fixes
+
+- fix formatter (`71c4cf8`) - Qwenzy
+
+**Total**: 1 commit(s)
+
+---
+
+
+### 2025-10-26
+
 #### 💄 Style Changes
 
 - REVISE THE  FORMAT COEDE (`b4c1b3a`) - Qwenzy
