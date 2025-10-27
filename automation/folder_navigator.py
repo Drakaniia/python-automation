@@ -1,6 +1,7 @@
 """
-Folder Navigator Module - Complete Fix
-Fixes back arrow in empty directories and navigation glitches
+Folder Navigator Module - Anti-Flicker Fix
+Fixed: Smooth arrow navigation without full screen redraws
+Uses incremental updates like menu.py for responsive experience
 """
 import os
 import sys
@@ -22,7 +23,7 @@ except ImportError:
 
 
 class FolderNavigator:
-    """Handles interactive folder navigation with arrow key support"""
+    """Handles interactive folder navigation with smooth arrow key support"""
 
     # ANSI escape codes
     HIDE_CURSOR = '\033[?25l'
@@ -36,7 +37,7 @@ class FolderNavigator:
         self.navigation_history = []
 
     def navigate(self):
-        """Start the interactive navigation loop with arrow keys"""
+        """Start the interactive navigation loop with smooth arrow keys"""
         while True:
             subdirs = self._get_subdirectories()
 
@@ -44,8 +45,8 @@ class FolderNavigator:
             if subdirs and self.selected_idx >= len(subdirs):
                 self.selected_idx = max(0, len(subdirs) - 1)
 
-            # Full display
-            self._display_navigation(subdirs)
+            # Full display on first render
+            self._display_navigation(subdirs, initial=True)
 
             # Handle user input
             action = self._get_user_input(subdirs)
@@ -59,10 +60,16 @@ class FolderNavigator:
                 self._go_back()
             elif action == "up":
                 if subdirs:
+                    old_idx = self.selected_idx
                     self.selected_idx = (self.selected_idx - 1) % len(subdirs)
+                    # Update only changed items
+                    self._update_selection(subdirs, old_idx, self.selected_idx)
             elif action == "down":
                 if subdirs:
+                    old_idx = self.selected_idx
                     self.selected_idx = (self.selected_idx + 1) % len(subdirs)
+                    # Update only changed items
+                    self._update_selection(subdirs, old_idx, self.selected_idx)
             elif action == "enter_dir":
                 if subdirs:
                     self._enter_directory(subdirs[self.selected_idx])
@@ -71,9 +78,11 @@ class FolderNavigator:
                     self.selected_idx = action - 1
                     self._enter_directory(subdirs[self.selected_idx])
 
-    def _display_navigation(self, subdirs):
+    def _display_navigation(self, subdirs, initial=False):
         """Display the navigation interface"""
-        self._clear_screen()
+        if initial:
+            self._clear_screen()
+        
         print("="*70)
         print("📂 FOLDER NAVIGATOR")
         print("="*70)
@@ -104,6 +113,29 @@ class FolderNavigator:
             print("  • Type 'confirm': Confirm current directory")
         print("="*70)
 
+    def _update_selection(self, subdirs, old_idx, new_idx):
+        """
+        Update only the two affected items for smooth navigation
+        This prevents full screen redraw and eliminates flickering
+        """
+        # Calculate line positions
+        # Header is 9 lines, then directory list starts
+        base_line = 10
+        
+        # Update old selection (unhighlight)
+        line_number = base_line + old_idx
+        sys.stdout.write(f'\033[{line_number + 1};1H')
+        sys.stdout.write(self.CLEAR_LINE)
+        self._print_directory_item_inline(old_idx, subdirs[old_idx], False)
+        
+        # Update new selection (highlight)
+        line_number = base_line + new_idx
+        sys.stdout.write(f'\033[{line_number + 1};1H')
+        sys.stdout.write(self.CLEAR_LINE)
+        self._print_directory_item_inline(new_idx, subdirs[new_idx], True)
+        
+        sys.stdout.flush()
+
     def _print_directory_item(self, idx, subdir, is_selected):
         """Print a single directory item with proper formatting"""
         line = f"{idx + 1}. {subdir.name}/"
@@ -116,6 +148,17 @@ class FolderNavigator:
             line = f"    {line}".ljust(68)
             print(line)
 
+    def _print_directory_item_inline(self, idx, subdir, is_selected):
+        """Print directory item inline (without newline) for updates"""
+        line = f"{idx + 1}. {subdir.name}/"
+
+        if is_selected:
+            line = f"  ► {line}".ljust(68)
+            sys.stdout.write(f"\033[1;46m{line}\033[0m")
+        else:
+            line = f"    {line}".ljust(68)
+            sys.stdout.write(line)
+
     def _get_user_input(self, subdirs):
         """Get user input with arrow key support"""
         if HAS_MSVCRT or HAS_TERMIOS:
@@ -124,7 +167,7 @@ class FolderNavigator:
             return self._traditional_input(subdirs)
 
     def _arrow_input(self, subdirs):
-        """Handle arrow key navigation with proper key handling"""
+        """Handle arrow key navigation with smooth updates"""
         # Hide cursor during navigation
         sys.stdout.write(self.HIDE_CURSOR)
         sys.stdout.flush()
