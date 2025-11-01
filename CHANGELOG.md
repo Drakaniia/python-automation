@@ -10,6 +10,17 @@
 
 ### 2025-10-28
 
+#### ♻️ Code Refactoring
+
+- refactor setup script and update changelog for improved clarity and f... (`6434aee`) - Qwenzy
+
+**Total**: 1 commit(s)
+
+---
+
+
+### 2025-10-28
+
 #### 🔧 Maintenance
 
 - enhance not show hidden files in structure_viewer (`8525278`) - Qwenzy
