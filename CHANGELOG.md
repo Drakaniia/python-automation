@@ -8,6 +8,17 @@
 
 ---
 
+### 2025-11-01
+
+#### ✨ New Features
+
+- add tests reature (`0f88451`) - Qwenzy
+
+**Total**: 1 commit(s)
+
+---
+
+
 ### 2025-10-28
 
 #### ♻️ Code Refactoring
