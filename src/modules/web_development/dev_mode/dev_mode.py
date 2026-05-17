@@ -5,7 +5,6 @@ from core.menu import Menu, MenuItem
 from ._base import DevModeCommand
 from .create_frontend import COMMAND as create_frontend
 from .run_project import COMMAND as run_project
-from .test_project import COMMAND as test_project
 from .port_killer_command import COMMAND as port_killer
 from .install_deps import COMMAND as install_deps
 from .format_code import COMMAND as format_code
@@ -15,7 +14,7 @@ import traceback
 """
 automation/dev_mode/dev_mode.py
 Dev Mode menu and command orchestration
-FINAL VERSION: Includes all 6 commands with Run Tests as option 3
+FINAL VERSION: Includes all commands with Port Killer as option 3
 """
 
 
@@ -34,16 +33,14 @@ class DevModeMenu(Menu):
         # ORDER MATTERS - This determines menu item numbers:
         # 1. Create Frontend Project (React / Next.js / Vue)
         # 2. Run Project (Dev / Build)
-        # 3. Run Tests (All Types)
-        # 4. Port Killer (Clear Conflicts) ← NEW!
-        # 5. Install Dependencies (npm install)
-        # 6. Setup Prettier (Format on Save)
-        # 7. Docker Quick Commands
-        # 8. Back to Main Menu (added automatically)
+        # 3. Port Killer (Clear Conflicts)
+        # 4. Install Dependencies (npm install)
+        # 5. Setup Prettier (Format on Save)
+        # 6. Docker Quick Commands
+        # 7. Back to Main Menu (added automatically)
         self.commands = [
             create_frontend,
             run_project,
-            test_project,
             port_killer,      # This is the new option 4
             install_deps,
             format_code,
