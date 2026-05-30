@@ -1,0 +1,163 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish, for example v0.1.0"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+      - name: Run tests
+        run: cargo test --locked
+
+  build:
+    name: Build ${{ matrix.asset }}
+    needs: verify
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            asset: magic-windows-x64.zip
+            archive: zip
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            asset: magic-linux-x64.tar.gz
+            archive: tar
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            asset: magic-macos-x64.tar.gz
+            archive: tar
+          - os: macos-15
+            target: aarch64-apple-darwin
+            asset: magic-macos-arm64.tar.gz
+            archive: tar
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Build release binary
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Package binaries
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $releaseTag = "${{ github.ref_name }}"
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $releaseTag = "${{ inputs.tag }}"
+          }
+
+          $target = "${{ matrix.target }}"
+          $asset = "${{ matrix.asset }}"
+          $packageName = "magic-$releaseTag-$target"
+          $dist = "dist"
+          $staging = Join-Path $dist $packageName
+          $binDir = Join-Path (Join-Path "target" $target) "release"
+
+          New-Item -ItemType Directory -Path $staging -Force | Out-Null
+
+          if ("${{ runner.os }}" -eq "Windows") {
+            Copy-Item (Join-Path $binDir "magic.exe") $staging
+            Copy-Item (Join-Path $binDir "portkill.exe") $staging
+          } else {
+            Copy-Item (Join-Path $binDir "magic") $staging
+            Copy-Item (Join-Path $binDir "portkill") $staging
+          }
+
+          Copy-Item "README.md" $staging
+          if (Test-Path "LICENSE") {
+            Copy-Item "LICENSE" $staging
+          }
+
+          $assetPath = Join-Path $dist $asset
+          if ("${{ matrix.archive }}" -eq "zip") {
+            Compress-Archive -Path (Join-Path $staging "*") -DestinationPath $assetPath -Force
+          } else {
+            tar -czf $assetPath -C $dist $packageName
+          }
+
+      - name: Upload packaged binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve release tag
+        id: release
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download packaged binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Generate checksums
+        shell: bash
+        run: |
+          cd release-assets
+          sha256sum magic-* > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Create or update release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.release.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            release-assets/magic-windows-x64.zip
+            release-assets/magic-linux-x64.tar.gz
+            release-assets/magic-macos-x64.tar.gz
+            release-assets/magic-macos-arm64.tar.gz
+            release-assets/SHA256SUMS.txt
