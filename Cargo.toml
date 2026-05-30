@@ -1,0 +1,32 @@
+[package]
+name = "magic"
+version = "0.1.0"
+edition = "2024"
+description = "An interactive TUI for finding and killing development processes by port."
+license = "MIT"
+repository = "https://github.com/Drakaniia/magic"
+readme = "README.md"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+crossterm = "0.28"
+ratatui = "0.29"
+
+[lib]
+name = "magic"
+path = "src/lib.rs"
+
+[[bin]]
+name = "magic"
+path = "src/main.rs"
+
+[[bin]]
+name = "portkill"
+path = "src/bin/portkill.rs"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "z"
+panic = "abort"
+strip = true
