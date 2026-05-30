@@ -2,7 +2,7 @@
 
 `magic` is a globally installable terminal port killer for local development.
 It scans common dev ports, shows the running processes in an interactive TUI,
-and lets you terminate them without installing Rust or Cargo.
+and makes it easy to kill stuck port processes by typing `magic` in your terminal.
 
 Default ports: `5173`, `3000`, and `8080`.
 
