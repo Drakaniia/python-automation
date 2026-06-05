@@ -112,6 +112,32 @@ jobs:
             tar -czf $assetPath -C $dist $packageName
           }
 
+      - name: Validate packaged binary
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $asset = "${{ matrix.asset }}"
+          $assetPath = Join-Path "dist" $asset
+          $checkDir = Join-Path "dist" "check-${{ matrix.target }}"
+          New-Item -ItemType Directory -Path $checkDir -Force | Out-Null
+
+          if ("${{ matrix.archive }}" -eq "zip") {
+            Expand-Archive -Path $assetPath -DestinationPath $checkDir -Force
+            $magicName = "magic.exe"
+            $portkillName = "portkill.exe"
+          } else {
+            tar -xzf $assetPath -C $checkDir
+            $magicName = "magic"
+            $portkillName = "portkill"
+          }
+
+          $magic = Get-ChildItem -Path $checkDir -Recurse -File -Filter $magicName | Select-Object -First 1
+          $portkill = Get-ChildItem -Path $checkDir -Recurse -File -Filter $portkillName | Select-Object -First 1
+          if (-not $magic -or -not $portkill) {
+            throw "Package $asset does not contain $magicName and $portkillName"
+          }
+
       - name: Upload packaged binary
         uses: actions/upload-artifact@v4
         with:
