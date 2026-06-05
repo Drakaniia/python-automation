@@ -4,13 +4,17 @@ use std::time::Duration;
 
 use super::KillMode;
 
-pub fn terminate(pid: u32, mode: KillMode) -> Result<(), String> {
+pub fn terminate(pid: u32, mode: KillMode, tree: bool) -> Result<(), String> {
     let pid_arg = pid.to_string();
     let mut command = Command::new("taskkill");
     command.args(["/PID", &pid_arg]);
 
     if mode == KillMode::Force {
-        command.args(["/F", "/T"]);
+        command.arg("/F");
+    }
+
+    if tree {
+        command.arg("/T");
     }
 
     let output = command
