@@ -3,7 +3,7 @@ set -eu
 
 REPOSITORY="${MAGIC_REPOSITORY:-Drakaniia/magic}"
 INSTALL_DIR="${MAGIC_INSTALL_DIR:-$HOME/.local/bin}"
-BASE_URL="https://github.com/$REPOSITORY/releases/latest/download"
+BASE_URL="${MAGIC_BASE_URL:-https://github.com/$REPOSITORY/releases/latest/download}"
 
 OS="$(uname -s)"
 ARCH="$(uname -m)"
@@ -30,9 +30,23 @@ cleanup() {
 }
 trap cleanup EXIT
 
+fetch_asset() {
+  source="$1"
+  destination="$2"
+
+  case "$source" in
+    http://*|https://*|file://*)
+      curl -fsSL "$source" -o "$destination"
+      ;;
+    *)
+      cp "$source" "$destination"
+      ;;
+  esac
+}
+
 echo "Downloading Magic from $REPOSITORY..."
-curl -fsSL "$BASE_URL/$ASSET" -o "$TMP_DIR/$ASSET"
-curl -fsSL "$BASE_URL/SHA256SUMS.txt" -o "$TMP_DIR/SHA256SUMS.txt"
+fetch_asset "$BASE_URL/$ASSET" "$TMP_DIR/$ASSET"
+fetch_asset "$BASE_URL/SHA256SUMS.txt" "$TMP_DIR/SHA256SUMS.txt"
 
 EXPECTED="$(grep "  $ASSET\$" "$TMP_DIR/SHA256SUMS.txt" | awk '{print $1}')"
 if [ -z "$EXPECTED" ]; then

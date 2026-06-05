@@ -1,6 +1,7 @@
 param(
     [string]$Repository = "Drakaniia/magic",
     [string]$InstallDir = "$env:LOCALAPPDATA\Programs\magic\bin",
+    [string]$BaseUrl,
     [switch]$SkipChecksum
 )
 
@@ -11,16 +12,45 @@ if (-not [Environment]::Is64BitOperatingSystem) {
 }
 
 $assetName = "magic-windows-x64.zip"
-$baseUrl = "https://github.com/$Repository/releases/latest/download"
+if (-not $BaseUrl) {
+    $BaseUrl = "https://github.com/$Repository/releases/latest/download"
+}
 $archivePath = Join-Path ([System.IO.Path]::GetTempPath()) $assetName
 $checksumPath = Join-Path ([System.IO.Path]::GetTempPath()) "magic-SHA256SUMS.txt"
 $extractRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("magic-install-" + [System.Guid]::NewGuid().ToString("N"))
 
+function Join-AssetSource {
+    param(
+        [string]$Base,
+        [string]$Name
+    )
+
+    if ($Base -match "^[a-zA-Z][a-zA-Z0-9+.-]*://") {
+        return "$($Base.TrimEnd("/"))/$Name"
+    }
+
+    return Join-Path $Base $Name
+}
+
+function Receive-Asset {
+    param(
+        [string]$Source,
+        [string]$Destination
+    )
+
+    if ($Source -match "^(https?|file)://") {
+        Invoke-WebRequest -Uri $Source -OutFile $Destination
+        return
+    }
+
+    Copy-Item -LiteralPath $Source -Destination $Destination -Force
+}
+
 Write-Host "Downloading Magic from $Repository..."
-Invoke-WebRequest -Uri "$baseUrl/$assetName" -OutFile $archivePath
+Receive-Asset -Source (Join-AssetSource -Base $BaseUrl -Name $assetName) -Destination $archivePath
 
 if (-not $SkipChecksum) {
-    Invoke-WebRequest -Uri "$baseUrl/SHA256SUMS.txt" -OutFile $checksumPath
+    Receive-Asset -Source (Join-AssetSource -Base $BaseUrl -Name "SHA256SUMS.txt") -Destination $checksumPath
     $checksumLine = Get-Content $checksumPath | Where-Object { $_ -match "\s+$([regex]::Escape($assetName))$" } | Select-Object -First 1
 
     if (-not $checksumLine) {
