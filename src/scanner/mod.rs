@@ -27,6 +27,137 @@ pub struct ProcessInfo {
     pub pid: u32,
     pub protocol: Protocol,
     pub command: Option<String>,
+    pub command_line: Option<String>,
+    pub executable_path: Option<String>,
+    pub cwd: Option<String>,
+    pub parent_pid: Option<u32>,
+}
+
+impl ProcessInfo {
+    pub fn new(port: u16, pid: u32, protocol: Protocol) -> Self {
+        Self {
+            port,
+            pid,
+            protocol,
+            command: None,
+            command_line: None,
+            executable_path: None,
+            cwd: None,
+            parent_pid: None,
+        }
+    }
+
+    pub fn with_command(mut self, command: impl Into<String>) -> Self {
+        self.command = Some(command.into());
+        self
+    }
+
+    pub fn with_command_line(mut self, command_line: impl Into<String>) -> Self {
+        self.command_line = Some(command_line.into());
+        self
+    }
+
+    pub fn with_executable_path(mut self, executable_path: impl Into<String>) -> Self {
+        self.executable_path = Some(executable_path.into());
+        self
+    }
+
+    pub fn with_cwd(mut self, cwd: impl Into<String>) -> Self {
+        self.cwd = Some(cwd.into());
+        self
+    }
+
+    pub fn with_parent_pid(mut self, parent_pid: u32) -> Self {
+        self.parent_pid = Some(parent_pid);
+        self
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ScanStatus {
+    Found,
+    NoListeners,
+    Unavailable { message: String },
+    PermissionLimited { message: String },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ScanReport {
+    pub processes: Vec<ProcessInfo>,
+    pub status: ScanStatus,
+}
+
+impl ScanReport {
+    pub fn from_processes(processes: Vec<ProcessInfo>) -> Self {
+        let status = if processes.is_empty() {
+            ScanStatus::NoListeners
+        } else {
+            ScanStatus::Found
+        };
+
+        Self { processes, status }
+    }
+
+    pub fn guidance(&self) -> String {
+        match &self.status {
+            ScanStatus::Found => "listeners found".to_string(),
+            ScanStatus::NoListeners => "no listeners found".to_string(),
+            ScanStatus::Unavailable { message } => {
+                format!("{message}. Install lsof or ss, or verify they are available on PATH.")
+            }
+            ScanStatus::PermissionLimited { message } => {
+                format!(
+                    "{message}. Scanner output may be incomplete; try elevated permissions or inspect the port with system tools."
+                )
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ScanAttempt {
+    Found {
+        tool: String,
+        processes: Vec<ProcessInfo>,
+    },
+    Empty {
+        tool: String,
+    },
+    Unavailable {
+        tool: String,
+        message: String,
+    },
+    PermissionLimited {
+        tool: String,
+        message: String,
+    },
+}
+
+impl ScanAttempt {
+    pub fn found(tool: impl Into<String>, processes: Vec<ProcessInfo>) -> Self {
+        Self::Found {
+            tool: tool.into(),
+            processes,
+        }
+    }
+
+    pub fn empty(tool: impl Into<String>) -> Self {
+        Self::Empty { tool: tool.into() }
+    }
+
+    pub fn unavailable(tool: impl Into<String>, message: impl Into<String>) -> Self {
+        Self::Unavailable {
+            tool: tool.into(),
+            message: message.into(),
+        }
+    }
+
+    pub fn permission_limited(tool: impl Into<String>, message: impl Into<String>) -> Self {
+        Self::PermissionLimited {
+            tool: tool.into(),
+            message: message.into(),
+        }
+    }
 }
 
 pub fn scan_ports(
@@ -34,22 +165,92 @@ pub fn scan_ports(
     include_tcp: bool,
     include_udp: bool,
 ) -> Result<Vec<ProcessInfo>, String> {
+    let report = scan_ports_report(ports, include_tcp, include_udp)?;
+    match report.status {
+        ScanStatus::Found | ScanStatus::NoListeners => Ok(report.processes),
+        ScanStatus::Unavailable { .. } | ScanStatus::PermissionLimited { .. } => {
+            Err(report.guidance())
+        }
+    }
+}
+
+pub fn scan_ports_report(
+    ports: &[u16],
+    include_tcp: bool,
+    include_udp: bool,
+) -> Result<ScanReport, String> {
     if ports.is_empty() {
-        return Ok(Vec::new());
+        return Ok(ScanReport::from_processes(Vec::new()));
     }
 
     #[cfg(windows)]
     {
-        return windows::scan_ports(ports, include_tcp, include_udp);
+        return windows::scan_ports_report(ports, include_tcp, include_udp);
     }
 
     #[cfg(unix)]
     {
-        return unix::scan_ports(ports, include_tcp, include_udp);
+        return unix::scan_ports_report(ports, include_tcp, include_udp);
     }
 
     #[allow(unreachable_code)]
     Err("this operating system is not supported".to_string())
+}
+
+pub fn combine_scan_attempts(attempts: Vec<ScanAttempt>) -> ScanReport {
+    let mut processes = Vec::new();
+    let mut unavailable = Vec::new();
+    let mut permission_limited = Vec::new();
+    let mut saw_empty = false;
+
+    for attempt in attempts {
+        match attempt {
+            ScanAttempt::Found {
+                processes: found, ..
+            } => processes.extend(found),
+            ScanAttempt::Empty { .. } => saw_empty = true,
+            ScanAttempt::Unavailable { tool, message } => {
+                unavailable.push(format!("{tool}: {message}"));
+            }
+            ScanAttempt::PermissionLimited { tool, message } => {
+                permission_limited.push(format!("{tool}: {message}"));
+            }
+        }
+    }
+
+    let processes = sort_and_dedup_processes(processes);
+    if !processes.is_empty() {
+        return ScanReport {
+            processes,
+            status: ScanStatus::Found,
+        };
+    }
+
+    if !permission_limited.is_empty() {
+        return ScanReport {
+            processes,
+            status: ScanStatus::PermissionLimited {
+                message: format!(
+                    "scanner permission limited ({})",
+                    permission_limited.join("; ")
+                ),
+            },
+        };
+    }
+
+    if !unavailable.is_empty() && !saw_empty {
+        return ScanReport {
+            processes,
+            status: ScanStatus::Unavailable {
+                message: format!("scanner unavailable ({})", unavailable.join("; ")),
+            },
+        };
+    }
+
+    ScanReport {
+        processes,
+        status: ScanStatus::NoListeners,
+    }
 }
 
 pub fn parse_windows_netstat(
@@ -82,12 +283,7 @@ pub fn parse_windows_netstat(
         };
 
         if let Some(pid) = parts.last().and_then(|value| value.parse::<u32>().ok()) {
-            processes.push(ProcessInfo {
-                port,
-                pid,
-                protocol,
-                command: None,
-            });
+            processes.push(ProcessInfo::new(port, pid, protocol));
         }
     }
 
@@ -120,12 +316,9 @@ pub fn parse_ss_output(
         };
 
         for pid in extract_pids(line) {
-            processes.push(ProcessInfo {
-                port,
-                pid,
-                protocol,
-                command: extract_command_name(line, pid),
-            });
+            let mut process = ProcessInfo::new(port, pid, protocol);
+            process.command = extract_command_name(line, pid);
+            processes.push(process);
         }
     }
 
@@ -170,38 +363,43 @@ pub fn parse_lsof_output(
             continue;
         };
 
-        processes.push(ProcessInfo {
-            port,
-            pid,
-            protocol,
-            command: parts.first().map(|value| (*value).to_string()),
-        });
+        let mut process = ProcessInfo::new(port, pid, protocol);
+        process.command = parts.first().map(|value| (*value).to_string());
+        processes.push(process);
     }
 
     sort_and_dedup_processes(processes)
 }
 
 pub fn sort_and_dedup_processes(processes: Vec<ProcessInfo>) -> Vec<ProcessInfo> {
-    let mut by_identity = BTreeMap::<(u16, u32, Protocol), Option<String>>::new();
+    let mut by_identity = BTreeMap::<(u16, u32, Protocol), ProcessInfo>::new();
 
     for process in processes {
-        let command = by_identity
+        let entry = by_identity
             .entry((process.port, process.pid, process.protocol))
-            .or_insert(None);
-        if command.is_none() && process.command.is_some() {
-            *command = process.command;
-        }
+            .or_insert_with(|| ProcessInfo::new(process.port, process.pid, process.protocol));
+        merge_identity(entry, process);
     }
 
-    by_identity
-        .into_iter()
-        .map(|((port, pid, protocol), command)| ProcessInfo {
-            port,
-            pid,
-            protocol,
-            command,
-        })
-        .collect()
+    by_identity.into_values().collect()
+}
+
+fn merge_identity(target: &mut ProcessInfo, source: ProcessInfo) {
+    if target.command.is_none() {
+        target.command = source.command;
+    }
+    if target.command_line.is_none() {
+        target.command_line = source.command_line;
+    }
+    if target.executable_path.is_none() {
+        target.executable_path = source.executable_path;
+    }
+    if target.cwd.is_none() {
+        target.cwd = source.cwd;
+    }
+    if target.parent_pid.is_none() {
+        target.parent_pid = source.parent_pid;
+    }
 }
 
 fn port_from_address(address: &str, requested: &BTreeSet<u16>) -> Option<u16> {
