@@ -14,8 +14,11 @@ use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 
 use crate::cli::ResolvedConfig;
-use crate::process::{NativeTerminator, terminate_force, terminate_many_with_fallback};
-use crate::scanner::scan_ports;
+use crate::process::{
+    NativeTerminator, terminate_force, terminate_force_tree, terminate_many_with_fallback,
+    terminate_many_with_fallback_tree,
+};
+use crate::scanner::scan_ports_report;
 
 use self::app::{App, AppMode};
 
@@ -45,7 +48,7 @@ fn run_loop(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     config: ResolvedConfig,
 ) -> Result<(), String> {
-    let mut app = App::new(config.ports.clone());
+    let mut app = App::with_filter(config.ports.clone(), config.tcp, config.udp);
     rescan(terminal, &mut app, &config)?;
 
     loop {
@@ -106,8 +109,8 @@ fn rescan(
 ) -> Result<(), String> {
     app.start_scanning();
     draw(terminal, app)?;
-    match scan_ports(&config.ports, config.tcp, config.udp) {
-        Ok(processes) => app.set_processes(processes),
+    match scan_ports_report(&config.ports, config.tcp, config.udp) {
+        Ok(report) => app.set_scan_report(report),
         Err(error) => app.set_error(error),
     }
     Ok(())
@@ -131,12 +134,24 @@ fn kill_selected(
     let force = force_now || config.force;
     let results = if force {
         pids.into_iter()
-            .map(|pid| terminate_force(&mut terminator, pid))
+            .map(|pid| {
+                if config.tree {
+                    terminate_force_tree(&mut terminator, pid)
+                } else {
+                    terminate_force(&mut terminator, pid)
+                }
+            })
             .collect()
+    } else if config.tree {
+        terminate_many_with_fallback_tree(&mut terminator, &pids, true)
     } else {
         terminate_many_with_fallback(&mut terminator, &pids, true)
     };
 
     app.set_kill_results(results);
-    rescan(terminal, app, config)
+    match scan_ports_report(&config.ports, config.tcp, config.udp) {
+        Ok(report) => app.refresh_processes_after_kill(report.processes),
+        Err(error) => app.set_error(error),
+    }
+    Ok(())
 }

@@ -1,7 +1,8 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
+use std::ops::Range;
 
 use crate::process::KillResult;
-use crate::scanner::ProcessInfo;
+use crate::scanner::{ProcessInfo, Protocol, ScanReport, ScanStatus};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AppMode {
@@ -13,9 +14,23 @@ pub enum AppMode {
     Error,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ConfirmationTarget {
+    pub pid: u32,
+    pub ports: Vec<u16>,
+    pub protocols: Vec<Protocol>,
+    pub command: Option<String>,
+    pub command_line: Option<String>,
+    pub executable_path: Option<String>,
+    pub cwd: Option<String>,
+    pub parent_pid: Option<u32>,
+}
+
 #[derive(Clone, Debug)]
 pub struct App {
     ports: Vec<u16>,
+    tcp: bool,
+    udp: bool,
     processes: Vec<ProcessInfo>,
     selected_index: usize,
     selected_pids: BTreeSet<u32>,
@@ -30,6 +45,8 @@ impl App {
     pub fn new(ports: Vec<u16>) -> Self {
         Self {
             ports,
+            tcp: true,
+            udp: true,
             processes: Vec::new(),
             selected_index: 0,
             selected_pids: BTreeSet::new(),
@@ -41,6 +58,13 @@ impl App {
         }
     }
 
+    pub fn with_filter(ports: Vec<u16>, tcp: bool, udp: bool) -> Self {
+        let mut app = Self::new(ports);
+        app.tcp = tcp;
+        app.udp = udp;
+        app
+    }
+
     pub fn with_processes(ports: Vec<u16>, processes: Vec<ProcessInfo>) -> Self {
         let mut app = Self::new(ports);
         app.set_processes(processes);
@@ -49,6 +73,15 @@ impl App {
 
     pub fn ports(&self) -> &[u16] {
         &self.ports
+    }
+
+    pub fn protocol_filter_label(&self) -> &'static str {
+        match (self.tcp, self.udp) {
+            (true, true) => "TCP+UDP",
+            (true, false) => "TCP only",
+            (false, true) => "UDP only",
+            (false, false) => "no protocols",
+        }
     }
 
     pub fn processes(&self) -> &[ProcessInfo] {
@@ -98,12 +131,11 @@ impl App {
     pub fn start_scanning(&mut self) {
         self.mode = AppMode::Scanning;
         self.status = format!("Scanning {}...", join_ports(&self.ports));
+        self.last_results.clear();
     }
 
     pub fn set_processes(&mut self, processes: Vec<ProcessInfo>) {
-        self.processes = processes;
-        self.selected_pids
-            .retain(|pid| self.processes.iter().any(|process| process.pid == *pid));
+        self.replace_processes(processes);
         if self.processes.is_empty() {
             self.selected_index = 0;
             self.mode = AppMode::Done;
@@ -117,6 +149,22 @@ impl App {
                 join_ports(&self.ports)
             );
         }
+    }
+
+    pub fn set_scan_report(&mut self, report: ScanReport) {
+        let guidance = report.guidance();
+        match report.status {
+            ScanStatus::Found | ScanStatus::NoListeners => self.set_processes(report.processes),
+            ScanStatus::Unavailable { .. } | ScanStatus::PermissionLimited { .. } => {
+                self.replace_processes(report.processes);
+                self.mode = AppMode::Error;
+                self.status = guidance;
+            }
+        }
+    }
+
+    pub fn refresh_processes_after_kill(&mut self, processes: Vec<ProcessInfo>) {
+        self.replace_processes(processes);
     }
 
     pub fn set_error(&mut self, message: String) {
@@ -175,7 +223,7 @@ impl App {
 
         self.mode = AppMode::ConfirmKill;
         self.status = format!(
-            "Kill {} selected process(es)? y=graceful+fallback, f=force, n=cancel",
+            "Review {} selected process(es), then choose y=graceful+fallback, f=force, n=cancel",
             self.selected_pids().len()
         );
     }
@@ -214,12 +262,85 @@ impl App {
         self.tick = self.tick.wrapping_add(1);
     }
 
+    pub fn confirmation_targets(&self) -> Vec<ConfirmationTarget> {
+        let selected_pids = self.selected_pids().into_iter().collect::<BTreeSet<_>>();
+        let mut targets = BTreeMap::<u32, ConfirmationTarget>::new();
+
+        for process in self
+            .processes
+            .iter()
+            .filter(|process| selected_pids.contains(&process.pid))
+        {
+            let target = targets
+                .entry(process.pid)
+                .or_insert_with(|| ConfirmationTarget {
+                    pid: process.pid,
+                    ports: Vec::new(),
+                    protocols: Vec::new(),
+                    command: None,
+                    command_line: None,
+                    executable_path: None,
+                    cwd: None,
+                    parent_pid: None,
+                });
+
+            if !target.ports.contains(&process.port) {
+                target.ports.push(process.port);
+                target.ports.sort_unstable();
+            }
+            if !target.protocols.contains(&process.protocol) {
+                target.protocols.push(process.protocol);
+                target.protocols.sort_unstable();
+            }
+            if target.command.is_none() {
+                target.command = process.command.clone();
+            }
+            if target.command_line.is_none() {
+                target.command_line = process.command_line.clone();
+            }
+            if target.executable_path.is_none() {
+                target.executable_path = process.executable_path.clone();
+            }
+            if target.cwd.is_none() {
+                target.cwd = process.cwd.clone();
+            }
+            if target.parent_pid.is_none() {
+                target.parent_pid = process.parent_pid;
+            }
+        }
+
+        targets.into_values().collect()
+    }
+
+    pub fn visible_process_range(&self, capacity: usize) -> Range<usize> {
+        if self.processes.is_empty() || capacity == 0 {
+            return 0..0;
+        }
+
+        let capacity = capacity.min(self.processes.len());
+        let end = (self.selected_index + 1)
+            .max(capacity)
+            .min(self.processes.len());
+        end - capacity..end
+    }
+
     pub fn quit(&mut self) {
         self.should_quit = true;
     }
 
     pub fn should_quit(&self) -> bool {
         self.should_quit
+    }
+
+    fn replace_processes(&mut self, processes: Vec<ProcessInfo>) {
+        self.processes = processes;
+        self.selected_pids
+            .retain(|pid| self.processes.iter().any(|process| process.pid == *pid));
+        if self.processes.is_empty() {
+            self.selected_index = 0;
+        } else {
+            self.selected_index = self.selected_index.min(self.processes.len() - 1);
+        }
     }
 }
 

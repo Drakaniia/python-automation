@@ -37,6 +37,8 @@ fn render_header(frame: &mut Frame<'_>, app: &App, area: ratatui::layout::Rect) 
         Span::styled("magic", theme::title()),
         Span::raw(" port killer "),
         Span::styled(format!("[{ports}]"), theme::muted()),
+        Span::raw(" "),
+        Span::styled(app.protocol_filter_label(), theme::muted()),
     ]);
 
     frame.render_widget(
@@ -68,12 +70,20 @@ fn render_status(frame: &mut Frame<'_>, app: &App, area: ratatui::layout::Rect) 
 }
 
 fn render_processes(frame: &mut Frame<'_>, app: &App, area: ratatui::layout::Rect) {
+    if app.mode() == AppMode::ConfirmKill {
+        render_confirmation(frame, app, area);
+        return;
+    }
+
     if app.processes().is_empty() {
         frame.render_widget(
-            Paragraph::new("No active listeners were found. Press r to scan again or q to quit.")
-                .style(theme::muted())
-                .wrap(Wrap { trim: true })
-                .block(Block::default().title("Processes").borders(Borders::ALL)),
+            Paragraph::new(format!(
+                "{}. Press r to scan again or q to quit.",
+                app.status()
+            ))
+            .style(theme::muted())
+            .wrap(Wrap { trim: true })
+            .block(Block::default().title("Processes").borders(Borders::ALL)),
             area,
         );
         return;
@@ -81,25 +91,41 @@ fn render_processes(frame: &mut Frame<'_>, app: &App, area: ratatui::layout::Rec
 
     let header = Row::new(["Sel", "Port", "PID", "Proto", "Command"])
         .style(Style::default().add_modifier(Modifier::BOLD));
-    let rows = app.processes().iter().enumerate().map(|(index, process)| {
-        let marker = if app.is_marked(process.pid) { "*" } else { " " };
-        let style = if index == app.selected_index() {
-            theme::selected()
-        } else if app.is_marked(process.pid) {
-            theme::marked()
-        } else {
-            Style::default()
-        };
+    let visible_capacity = area.height.saturating_sub(3) as usize;
+    let range = app.visible_process_range(visible_capacity);
+    let rows = app.processes()[range.clone()]
+        .iter()
+        .enumerate()
+        .map(|(offset, process)| {
+            let index = range.start + offset;
+            let marker = if app.is_marked(process.pid) { "*" } else { " " };
+            let style = if index == app.selected_index() {
+                theme::selected()
+            } else if app.is_marked(process.pid) {
+                theme::marked()
+            } else {
+                Style::default()
+            };
 
-        Row::new(vec![
-            Cell::from(marker),
-            Cell::from(process.port.to_string()),
-            Cell::from(process.pid.to_string()),
-            Cell::from(process.protocol.to_string()),
-            Cell::from(process.command.as_deref().unwrap_or("-").to_string()),
-        ])
-        .style(style)
-    });
+            Row::new(vec![
+                Cell::from(marker),
+                Cell::from(process.port.to_string()),
+                Cell::from(process.pid.to_string()),
+                Cell::from(process.protocol.to_string()),
+                Cell::from(display_command(process)),
+            ])
+            .style(style)
+        });
+    let title = if app.processes().len() > range.len() {
+        format!(
+            "Processes {}-{} of {}",
+            range.start + 1,
+            range.end,
+            app.processes().len()
+        )
+    } else {
+        "Processes".to_string()
+    };
 
     let table = Table::new(
         rows,
@@ -112,7 +138,51 @@ fn render_processes(frame: &mut Frame<'_>, app: &App, area: ratatui::layout::Rec
         ],
     )
     .header(header)
-    .block(Block::default().title("Processes").borders(Borders::ALL));
+    .block(Block::default().title(title).borders(Borders::ALL));
+
+    frame.render_widget(table, area);
+}
+
+fn render_confirmation(frame: &mut Frame<'_>, app: &App, area: ratatui::layout::Rect) {
+    let header = Row::new(["PID", "Ports", "Proto", "Command"])
+        .style(Style::default().add_modifier(Modifier::BOLD));
+    let rows = app.confirmation_targets().into_iter().map(|target| {
+        Row::new(vec![
+            Cell::from(target.pid.to_string()),
+            Cell::from(join_values(&target.ports)),
+            Cell::from(
+                target
+                    .protocols
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join(","),
+            ),
+            Cell::from(
+                target
+                    .command_line
+                    .or(target.command)
+                    .or(target.executable_path)
+                    .unwrap_or_else(|| "-".to_string()),
+            ),
+        ])
+    });
+
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Length(8),
+            Constraint::Length(14),
+            Constraint::Length(10),
+            Constraint::Min(20),
+        ],
+    )
+    .header(header)
+    .block(
+        Block::default()
+            .title("Confirm Kill Targets")
+            .borders(Borders::ALL),
+    );
 
     frame.render_widget(table, area);
 }
@@ -157,4 +227,21 @@ fn render_footer(frame: &mut Frame<'_>, app: &App, area: ratatui::layout::Rect) 
             .block(Block::default().borders(Borders::ALL)),
         area,
     );
+}
+
+fn display_command(process: &crate::scanner::ProcessInfo) -> String {
+    process
+        .command_line
+        .as_deref()
+        .or(process.command.as_deref())
+        .unwrap_or("-")
+        .to_string()
+}
+
+fn join_values(values: &[u16]) -> String {
+    values
+        .iter()
+        .map(u16::to_string)
+        .collect::<Vec<_>>()
+        .join(",")
 }
