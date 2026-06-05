@@ -71,3 +71,23 @@ cargo install --path .
 magic
 portkill
 ```
+
+## Installer Smoke Fixtures
+
+The installers can also install from a staged local asset directory. CI uses
+this path to verify archive layout, checksum validation, PATH installation, and
+uninstall cleanup without waiting for a published GitHub Release.
+
+macOS/Linux:
+
+```sh
+MAGIC_BASE_URL=/path/to/assets MAGIC_INSTALL_DIR=/tmp/magic-bin sh scripts/install.sh
+MAGIC_INSTALL_DIR=/tmp/magic-bin sh scripts/uninstall.sh
+```
+
+Windows:
+
+```powershell
+.\scripts\install.ps1 -BaseUrl C:\path\to\assets -InstallDir C:\tmp\magic-bin
+.\scripts\uninstall.ps1 -InstallDir C:\tmp\magic-bin
+```

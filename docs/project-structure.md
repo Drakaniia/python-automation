@@ -43,23 +43,23 @@ magic/
 - `src/main.rs`: entry point for the `magic` binary.
 - `src/bin/portkill.rs`: alternate binary name for the same tool.
 - `src/lib.rs`: public module exports used by binaries and tests.
-- `src/cli.rs`: command-line parsing, subcommands, and routing.
-- `src/config.rs`: default ports and protocol defaults.
-- `src/scanner/`: OS-specific process discovery and parser helpers.
-- `src/process/`: graceful and forced process termination.
+- `src/cli.rs`: command-line parsing, config commands, JSON output, completions, and routing.
+- `src/config.rs`: built-in defaults, saved JSON config, profiles, and env/config resolution.
+- `src/scanner/`: OS-specific process discovery, scanner diagnostics, process identity, and parser helpers.
+- `src/process/`: graceful, forced, and optional process-tree termination.
 - `src/tui/`: terminal setup, state, rendering, and event loop.
 
 ## Tests
 
-- `tests/cli.rs`: argument resolution and command behavior.
-- `tests/scanner_parsing.rs`: parser fixtures for platform command output.
-- `tests/process.rs`: graceful-to-force termination fallback.
-- `tests/tui_state.rs`: deterministic TUI state transitions.
+- `tests/cli.rs`: argument/config resolution, command behavior, and JSON formatting.
+- `tests/scanner_parsing.rs`: parser fixtures and scanner diagnostic classification.
+- `tests/process.rs`: graceful-to-force fallback and process-tree ordering.
+- `tests/tui_state.rs`: deterministic TUI selection, confirmation, result, and pagination state.
 
 ## Distribution
 
-- `.github/workflows/ci.yml`: formatting and test checks.
-- `.github/workflows/release.yml`: cross-platform release build and upload.
+- `.github/workflows/ci.yml`: formatting, cross-platform tests, and installer smoke checks.
+- `.github/workflows/release.yml`: cross-platform release build, archive validation, and upload.
 - `scripts/install.ps1`: Windows installer.
 - `scripts/uninstall.ps1`: Windows uninstaller.
 - `scripts/install.sh`: macOS/Linux installer.

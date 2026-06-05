@@ -10,11 +10,13 @@ Magic publishes installable binaries from GitHub Actions in
 .github/workflows/release.yml
 ```
 
-`ci.yml` runs formatting and tests on pushes and pull requests.
+`ci.yml` runs formatting, tests on Ubuntu/Windows/macOS, and staged installer
+smoke checks on Linux and Windows.
 
 `release.yml` runs when a tag matching `v*.*.*` is pushed. It verifies the repo,
 builds release binaries on Windows, Linux, and macOS, creates checksums, and
-publishes a GitHub Release.
+publishes a GitHub Release. Each archive is extracted and checked for both
+`magic` and `portkill` before upload.
 
 ## Release Assets
 
@@ -63,6 +65,10 @@ cargo fmt -- --check
 cargo test --locked
 cargo build --release --locked
 ```
+
+For installer smoke checks, stage assets with the same names as the release
+workflow and run the install scripts with `MAGIC_BASE_URL` or `-BaseUrl` pointed
+at that directory.
 
 On Windows, the release executable is:
 
