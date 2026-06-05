@@ -1,5 +1,6 @@
 use magic::scanner::{
-    ProcessInfo, Protocol, parse_ss_output, parse_windows_netstat, sort_and_dedup_processes,
+    ProcessInfo, Protocol, ScanAttempt, ScanStatus, combine_scan_attempts, parse_lsof_output,
+    parse_ss_output, parse_windows_netstat, sort_and_dedup_processes,
 };
 
 #[test]
@@ -17,18 +18,8 @@ fn parses_windows_netstat_tcp_listeners_for_requested_ports() {
     assert_eq!(
         processes,
         vec![
-            ProcessInfo {
-                port: 3000,
-                pid: 1234,
-                protocol: Protocol::Tcp,
-                command: None,
-            },
-            ProcessInfo {
-                port: 5173,
-                pid: 4321,
-                protocol: Protocol::Udp,
-                command: None,
-            },
+            ProcessInfo::new(3000, 1234, Protocol::Tcp),
+            ProcessInfo::new(5173, 4321, Protocol::Udp),
         ]
     );
 }
@@ -46,18 +37,27 @@ tcp   LISTEN 0      511    [::1]:8080        [::]:*        users:(("node",pid=65
     assert_eq!(
         processes,
         vec![
-            ProcessInfo {
-                port: 5173,
-                pid: 3210,
-                protocol: Protocol::Tcp,
-                command: Some("vite".to_string()),
-            },
-            ProcessInfo {
-                port: 8080,
-                pid: 6543,
-                protocol: Protocol::Tcp,
-                command: Some("node".to_string()),
-            },
+            ProcessInfo::new(5173, 3210, Protocol::Tcp).with_command("vite"),
+            ProcessInfo::new(8080, 6543, Protocol::Tcp).with_command("node"),
+        ]
+    );
+}
+
+#[test]
+fn parses_lsof_output_for_tcp_and_udp_listeners() {
+    let output = r#"
+COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+node     1111  dev   22u  IPv4  12345      0t0  TCP 127.0.0.1:3000 (LISTEN)
+python   2222  dev   23u  IPv4  67890      0t0  UDP *:5173
+"#;
+
+    let processes = parse_lsof_output(output, &[3000, 5173], true, true);
+
+    assert_eq!(
+        processes,
+        vec![
+            ProcessInfo::new(3000, 1111, Protocol::Tcp).with_command("node"),
+            ProcessInfo::new(5173, 2222, Protocol::Udp).with_command("python"),
         ]
     );
 }
@@ -65,19 +65,43 @@ tcp   LISTEN 0      511    [::1]:8080        [::]:*        users:(("node",pid=65
 #[test]
 fn deduplicates_processes_by_port_pid_and_protocol() {
     let processes = vec![
-        ProcessInfo {
-            port: 3000,
-            pid: 10,
-            protocol: Protocol::Tcp,
-            command: Some("node".to_string()),
-        },
-        ProcessInfo {
-            port: 3000,
-            pid: 10,
-            protocol: Protocol::Tcp,
-            command: None,
-        },
+        ProcessInfo::new(3000, 10, Protocol::Tcp)
+            .with_command("node")
+            .with_command_line("npm run dev"),
+        ProcessInfo::new(3000, 10, Protocol::Tcp).with_executable_path("/usr/bin/node"),
     ];
 
-    assert_eq!(sort_and_dedup_processes(processes).len(), 1);
+    let deduped = sort_and_dedup_processes(processes);
+
+    assert_eq!(deduped.len(), 1);
+    assert_eq!(deduped[0].command.as_deref(), Some("node"));
+    assert_eq!(deduped[0].command_line.as_deref(), Some("npm run dev"));
+    assert_eq!(deduped[0].executable_path.as_deref(), Some("/usr/bin/node"));
+}
+
+#[test]
+fn reports_scanner_dependencies_as_unavailable_when_no_tool_can_run() {
+    let report = combine_scan_attempts(vec![
+        ScanAttempt::unavailable("lsof", "not found"),
+        ScanAttempt::unavailable("ss", "not found"),
+    ]);
+
+    assert!(matches!(report.status, ScanStatus::Unavailable { .. }));
+    assert!(report.processes.is_empty());
+    assert!(report.guidance().contains("lsof"));
+    assert!(report.guidance().contains("ss"));
+}
+
+#[test]
+fn reports_permission_limited_scans_before_claiming_no_listeners() {
+    let report = combine_scan_attempts(vec![
+        ScanAttempt::permission_limited("lsof", "permission denied"),
+        ScanAttempt::empty("ss"),
+    ]);
+
+    assert!(matches!(
+        report.status,
+        ScanStatus::PermissionLimited { .. }
+    ));
+    assert!(report.guidance().contains("permission"));
 }
