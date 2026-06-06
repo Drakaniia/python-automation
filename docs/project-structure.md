@@ -8,7 +8,8 @@ magic/
 |-- docs/
 |   |-- installation.md
 |   |-- project-structure.md
-|   `-- release.md
+|   |-- release.md
+|   `-- tui-ux-design.md
 |-- scripts/
 |   |-- install.ps1
 |   |-- uninstall.ps1
@@ -54,7 +55,11 @@ magic/
 - `tests/cli.rs`: argument/config resolution, command behavior, and JSON formatting.
 - `tests/scanner_parsing.rs`: parser fixtures and scanner diagnostic classification.
 - `tests/process.rs`: graceful-to-force fallback and process-tree ordering.
-- `tests/tui_state.rs`: deterministic TUI selection, confirmation, result, and pagination state.
+- `tests/tui_state.rs`: deterministic TUI selection, confirmation, result, navigation, and pagination state.
+
+## Design Docs
+
+- `docs/tui-ux-design.md`: keyboard-first ratatui layout, hierarchy, navigation, and feedback strategy.
 
 ## Distribution
 
