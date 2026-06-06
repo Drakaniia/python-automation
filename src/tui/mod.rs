@@ -76,14 +76,22 @@ fn run_loop(
         }
 
         match (app.mode(), key.code) {
+            (AppMode::ConfirmKill, KeyCode::Esc | KeyCode::Char('n')) => app.cancel_confirmation(),
             (_, KeyCode::Char('q') | KeyCode::Esc) => app.quit(),
             (_, KeyCode::Char('r')) => rescan(terminal, &mut app, &config)?,
-            (AppMode::Browsing | AppMode::Done, KeyCode::Down) => app.move_down(),
-            (AppMode::Browsing | AppMode::Done, KeyCode::Up) => app.move_up(),
+            (AppMode::Browsing | AppMode::Done, KeyCode::Down | KeyCode::Char('j')) => {
+                app.move_down()
+            }
+            (AppMode::Browsing | AppMode::Done, KeyCode::Up | KeyCode::Char('k')) => app.move_up(),
+            (AppMode::Browsing | AppMode::Done, KeyCode::Home | KeyCode::Char('g')) => {
+                app.move_first()
+            }
+            (AppMode::Browsing | AppMode::Done, KeyCode::End | KeyCode::Char('G')) => {
+                app.move_last()
+            }
             (AppMode::Browsing | AppMode::Done, KeyCode::Char(' ')) => app.toggle_selected(),
             (AppMode::Browsing | AppMode::Done, KeyCode::Char('a')) => app.toggle_all(),
             (AppMode::Browsing | AppMode::Done, KeyCode::Enter) => app.request_confirmation(),
-            (AppMode::ConfirmKill, KeyCode::Char('n')) => app.cancel_confirmation(),
             (AppMode::ConfirmKill, KeyCode::Char('y')) => {
                 kill_selected(terminal, &mut app, &config, false)?
             }

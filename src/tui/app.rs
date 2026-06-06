@@ -192,14 +192,33 @@ impl App {
         };
     }
 
+    pub fn move_first(&mut self) {
+        if self.processes.is_empty() {
+            return;
+        }
+
+        self.selected_index = 0;
+    }
+
+    pub fn move_last(&mut self) {
+        if self.processes.is_empty() {
+            return;
+        }
+
+        self.selected_index = self.processes.len() - 1;
+    }
+
     pub fn toggle_selected(&mut self) {
         let Some(pid) = self.selected_pid() else {
             return;
         };
 
-        if !self.selected_pids.insert(pid) {
+        let marked = self.selected_pids.insert(pid);
+        if !marked {
             self.selected_pids.remove(&pid);
         }
+        let action = if marked { "Marked" } else { "Unmarked" };
+        self.status = format!("{action} PID {pid} ({} selected)", self.selected_pids.len());
     }
 
     pub fn toggle_all(&mut self) {
@@ -209,10 +228,15 @@ impl App {
             .map(|process| process.pid)
             .collect::<BTreeSet<u32>>();
 
-        if self.selected_pids.len() == all_pids.len() {
+        if all_pids.is_empty() {
+            self.status = "No processes to mark".to_string();
+        } else if self.selected_pids.len() == all_pids.len() {
             self.selected_pids.clear();
+            self.status = "Cleared all selections".to_string();
         } else {
+            let count = all_pids.len();
             self.selected_pids = all_pids;
+            self.status = format!("Marked all {count} process(es)");
         }
     }
 

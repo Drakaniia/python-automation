@@ -26,6 +26,20 @@ fn arrow_navigation_wraps_through_detected_processes() {
 }
 
 #[test]
+fn first_and_last_navigation_jump_to_process_boundaries() {
+    let mut app = App::with_processes(
+        vec![5173, 3000, 8080],
+        vec![process(3000, 1), process(5173, 2), process(8080, 3)],
+    );
+
+    app.move_last();
+    assert_eq!(app.selected_pid(), Some(3));
+
+    app.move_first();
+    assert_eq!(app.selected_pid(), Some(1));
+}
+
+#[test]
 fn selected_processes_are_marked_for_confirmation() {
     let mut app = App::with_processes(
         vec![5173, 3000, 8080],
@@ -39,6 +53,34 @@ fn selected_processes_are_marked_for_confirmation() {
 
     assert_eq!(app.selected_pids(), vec![1, 2]);
     assert_eq!(app.mode(), AppMode::ConfirmKill);
+}
+
+#[test]
+fn marking_a_process_reports_the_changed_selection_count() {
+    let mut app = App::with_processes(
+        vec![5173, 3000, 8080],
+        vec![process(3000, 1), process(5173, 2)],
+    );
+
+    app.toggle_selected();
+    assert_eq!(app.status(), "Marked PID 1 (1 selected)");
+
+    app.toggle_selected();
+    assert_eq!(app.status(), "Unmarked PID 1 (0 selected)");
+}
+
+#[test]
+fn toggling_all_processes_reports_whether_all_or_none_are_selected() {
+    let mut app = App::with_processes(
+        vec![5173, 3000, 8080],
+        vec![process(3000, 1), process(5173, 2)],
+    );
+
+    app.toggle_all();
+    assert_eq!(app.status(), "Marked all 2 process(es)");
+
+    app.toggle_all();
+    assert_eq!(app.status(), "Cleared all selections");
 }
 
 #[test]
